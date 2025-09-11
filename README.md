@@ -176,21 +176,6 @@ cd Easy_Menu_Builder
 python main.py
 ```
 
-或者在Windows系统中直接运行：
-
-```bash
-Easy_Menu_Builder/run.bat
-```
-
-### 方法3：重新打包程序
-
-如果需要重新打包程序，可以运行：
-
-```bash
-cd Easy_Menu_Builder
-python build.py
-```
-
 ## 使用说明
 
 ### 1. 创建菜单结构
