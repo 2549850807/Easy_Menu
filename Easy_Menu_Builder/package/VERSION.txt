@@ -1,0 +1,3 @@
+Easy Menu Navigator
+Version: 1.0.0
+Build Date: 1757147391.7231517
