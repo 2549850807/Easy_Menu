@@ -3,14 +3,54 @@
 #include <string.h>
 #include <stdio.h>
 
-// 全局内存池
 static memory_pool_t g_memory_pool = {0};
 static bool g_pool_initialized = false;
+static uint64_t g_pool_bitmap = 0;
+static size_t g_last_free_hint = 0;
 
-// 字符串操作优化辅助函数
+static inline size_t count_trailing_zeros(uint64_t value) {
+    if (value == 0) return 64;
+    
+    size_t count = 0;
+    
+    if ((value & 0xFFFFFFFFULL) == 0) {
+        count += 32;
+        value >>= 32;
+    }
+    
+    if ((value & 0xFFFFULL) == 0) {
+        count += 16;
+        value >>= 16;
+    }
+    
+    if ((value & 0xFFULL) == 0) {
+        count += 8;
+        value >>= 8;
+    }
+    
+    if ((value & 0xFULL) == 0) {
+        count += 4;
+        value >>= 4;
+    }
+    
+    if ((value & 0x3ULL) == 0) {
+        count += 2;
+        value >>= 2;
+    }
+    
+    if ((value & 0x1ULL) == 0) {
+        count += 1;
+    }
+    
+    return count;
+}
+
 static uint32_t fast_hash(const char* str, size_t len);
 static void fast_string_build(char* dest, size_t dest_size, const char* prefix, const char* main_str, const char* suffix);
 static bool string_content_changed(const char* old_str, const char* new_str, size_t len);
+static inline void fast_memset_char(char* dest, char c, size_t len);
+static inline size_t fast_strlen_bounded(const char* str, size_t max_len);
+static inline void fast_strncpy_pad(char* dest, const char* src, size_t len);
 
 // 数据类型操作辅助函数
 static void increment_value_by_type(void* ref, void* step, data_type_t type);
@@ -18,6 +58,13 @@ static void decrement_value_by_type(void* ref, void* step, void* min_val, data_t
 static bool is_value_in_range(void* ref, void* min_val, void* max_val, data_type_t type, bool is_increment);
 static void format_value_by_type(void* ref, data_type_t type, char* str, size_t size);
 static void copy_value_by_type(void* dest, void* src, data_type_t type);
+
+// 按键处理优化辅助函数
+static void handle_navigation_up(navigator_t* nav);
+static void handle_navigation_down(navigator_t* nav);
+static void handle_item_operation_up(navigator_t* nav, menu_item_t* current_item);
+static void handle_item_operation_down(navigator_t* nav, menu_item_t* current_item);
+static void update_visible_range(navigator_t* nav);
 
 /**
  * @brief 内存池初始化
@@ -38,27 +85,20 @@ menu_item_t* memory_pool_alloc(void) {
         memory_pool_init();
     }
     
-    // 从提示位置开始查找
-    for (size_t i = g_memory_pool.next_free; i < MENU_POOL_SIZE; i++) {
-        if (!g_memory_pool.used[i]) {
-            g_memory_pool.used[i] = true;
-            g_memory_pool.next_free = i + 1;
-            memset(&g_memory_pool.pool[i], 0, sizeof(menu_item_t));
-            return &g_memory_pool.pool[i];
-        }
+    if (g_pool_bitmap == UINT64_MAX) {
+        return NULL;
     }
     
-    // 如果提示位置后面没有，从头开始查找
-    for (size_t i = 0; i < g_memory_pool.next_free && i < MENU_POOL_SIZE; i++) {
-        if (!g_memory_pool.used[i]) {
-            g_memory_pool.used[i] = true;
-            g_memory_pool.next_free = i + 1;
-            memset(&g_memory_pool.pool[i], 0, sizeof(menu_item_t));
-            return &g_memory_pool.pool[i];
-        }
+    size_t free_index = count_trailing_zeros(~g_pool_bitmap);
+    if (free_index >= MENU_POOL_SIZE) {
+        return NULL;
     }
     
-    return NULL;  // 内存池已满
+    g_pool_bitmap |= (1ULL << free_index);
+    g_memory_pool.used[free_index] = true;
+    
+    memset(&g_memory_pool.pool[free_index], 0, sizeof(menu_item_t));
+    return &g_memory_pool.pool[free_index];
 }
 
 /**
@@ -67,13 +107,11 @@ menu_item_t* memory_pool_alloc(void) {
 void memory_pool_free(menu_item_t* item) {
     if (!item || !g_pool_initialized) return;
     
-    // 检查是否在池范围内
     if (item >= g_memory_pool.pool && item < g_memory_pool.pool + MENU_POOL_SIZE) {
         size_t index = item - g_memory_pool.pool;
         g_memory_pool.used[index] = false;
-        if (index < g_memory_pool.next_free) {
-            g_memory_pool.next_free = index;  // 更新提示位置
-        }
+        g_pool_bitmap &= ~(1ULL << index);
+        g_last_free_hint = index;
     }
 }
 
@@ -93,13 +131,69 @@ size_t memory_pool_get_usage(void) {
 }
 
 /**
- * @brief 快速哈希函数 (DJB2算法)
+ * @brief 快速内存设置
+ */
+static inline void fast_memset_char(char* dest, char c, size_t len) {
+    if (len <= 16) {
+        for (size_t i = 0; i < len; i++) {
+            dest[i] = c;
+        }
+    } else {
+        memset(dest, c, len);
+    }
+}
+
+/**
+ * @brief 有界字符串长度计算
+ */
+static inline size_t fast_strlen_bounded(const char* str, size_t max_len) {
+    if (!str) return 0;
+    
+    size_t len = 0;
+    while (len < max_len && str[len] != '\0') {
+        len++;
+    }
+    return len;
+}
+
+/**
+ * @brief 快速字符串复制并填充
+ */
+static inline void fast_strncpy_pad(char* dest, const char* src, size_t len) {
+    if (!dest || !src || len == 0) return;
+    
+    size_t src_len = fast_strlen_bounded(src, len);
+    
+    for (size_t i = 0; i < src_len; i++) {
+        dest[i] = src[i];
+    }
+    
+    if (src_len < len) {
+        fast_memset_char(dest + src_len, ' ', len - src_len);
+    }
+}
+
+/**
+ * @brief 快速哈希函数
  */
 static uint32_t fast_hash(const char* str, size_t len) {
+    if (!str) return 0;
+    
     uint32_t hash = 5381;
-    for (size_t i = 0; i < len && str[i] != '\0'; i++) {
+    size_t actual_len = fast_strlen_bounded(str, len);
+    
+    size_t i = 0;
+    for (; i + 3 < actual_len; i += 4) {
+        hash = ((hash << 5) + hash) + (uint8_t)str[i];
+        hash = ((hash << 5) + hash) + (uint8_t)str[i+1];
+        hash = ((hash << 5) + hash) + (uint8_t)str[i+2];
+        hash = ((hash << 5) + hash) + (uint8_t)str[i+3];
+    }
+    
+    for (; i < actual_len; i++) {
         hash = ((hash << 5) + hash) + (uint8_t)str[i];
     }
+    
     return hash;
 }
 
@@ -107,34 +201,33 @@ static uint32_t fast_hash(const char* str, size_t len) {
  * @brief 快速字符串构建
  */
 static void fast_string_build(char* dest, size_t dest_size, const char* prefix, const char* main_str, const char* suffix) {
-    char* ptr = dest;
-    size_t remaining = dest_size - 1;  // 保留\0空间
+    if (!dest || dest_size == 0) return;
     
-    // 复制前缀
-    if (prefix && remaining > 0) {
-        while (*prefix && remaining > 0) {
-            *ptr++ = *prefix++;
-            remaining--;
+    size_t pos = 0;
+    size_t max_len = dest_size - 1;
+    
+    if (prefix && pos < max_len) {
+        size_t prefix_len = fast_strlen_bounded(prefix, max_len - pos);
+        for (size_t i = 0; i < prefix_len; i++) {
+            dest[pos++] = prefix[i];
         }
     }
     
-    // 复制主字符串
-    if (main_str && remaining > 0) {
-        while (*main_str && remaining > 0) {
-            *ptr++ = *main_str++;
-            remaining--;
+    if (main_str && pos < max_len) {
+        size_t main_len = fast_strlen_bounded(main_str, max_len - pos);
+        for (size_t i = 0; i < main_len; i++) {
+            dest[pos++] = main_str[i];
         }
     }
     
-    // 复制后缀
-    if (suffix && remaining > 0) {
-        while (*suffix && remaining > 0) {
-            *ptr++ = *suffix++;
-            remaining--;
+    if (suffix && pos < max_len) {
+        size_t suffix_len = fast_strlen_bounded(suffix, max_len - pos);
+        for (size_t i = 0; i < suffix_len; i++) {
+            dest[pos++] = suffix[i];
         }
     }
     
-    *ptr = '\0';
+    dest[pos] = '\0';
 }
 
 /**
@@ -456,123 +549,11 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
     
     switch (key_value) {
         case KEY_UP:
-            switch (current_item->type) {
-                case MENU_TYPE_NORMAL:
-                    nav->selected_index = (nav->selected_index == 0) 
-                        ? (nav->current_menu->children_count - 1) 
-                        : (nav->selected_index - 1);
-                    if (nav->selected_index == nav->current_menu->children_count - 1) {
-                        if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                        }
-                        nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
-                    }
-                    break;
-                    
-                case MENU_TYPE_EXHIBITION:
-                    if (current_item->is_locked) {
-                        nav->selected_index = (nav->selected_index == 0) 
-                            ? (nav->current_menu->children_count - 1) 
-                            : (nav->selected_index - 1);
-                        if (nav->selected_index == nav->current_menu->children_count - 1) {
-                            if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                                memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            }
-                            nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
-                        }
-                    } else {
-                        menu_item_prev_page(current_item);
-                    }
-                    break;
-                    
-                case MENU_TYPE_CHANGEABLE:
-                    if (!current_item->is_locked) {
-                        menu_item_increment(current_item);
-                    } else {
-                        nav->selected_index = (nav->selected_index == 0) 
-                            ? (nav->current_menu->children_count - 1) 
-                            : (nav->selected_index - 1);
-                        if (nav->selected_index == nav->current_menu->children_count - 1) {
-                            if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                                memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            }
-                            nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
-                        }
-                    }
-                    break;
-                    
-                case MENU_TYPE_TOGGLE:
-                    if (!current_item->is_locked) {
-                        menu_item_toggle(current_item);
-                    } else {
-                        nav->selected_index = (nav->selected_index == 0) 
-                            ? (nav->current_menu->children_count - 1) 
-                            : (nav->selected_index - 1);
-                        if (nav->selected_index == nav->current_menu->children_count - 1) {
-                            if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                                memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            }
-                            nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
-                        }
-                    }
-                    break;
-            }
+            handle_item_operation_up(nav, current_item);
             break;
             
         case KEY_DOWN:
-            switch (current_item->type) {
-                case MENU_TYPE_NORMAL:
-                    nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
-                    if (nav->selected_index == 0) {
-                        if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                        }
-                        nav->first_visible_item = 0;
-                    }
-                    break;
-                    
-                case MENU_TYPE_EXHIBITION:
-                    if (current_item->is_locked) {
-                        nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
-                        if (nav->selected_index == 0) {
-                            if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                                memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            }
-                            nav->first_visible_item = 0;
-                        }
-                    } else {
-                        menu_item_next_page(current_item);
-                    }
-                    break;
-                    
-                case MENU_TYPE_CHANGEABLE:
-                    if (!current_item->is_locked) {
-                        menu_item_decrement(current_item);
-                    } else {
-                        nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
-                        if (nav->selected_index == 0) {
-                            if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                                memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            }
-                            nav->first_visible_item = 0;
-                        }
-                    }
-                    break;
-                    
-                case MENU_TYPE_TOGGLE:
-                    if (!current_item->is_locked) {
-                        menu_item_toggle(current_item);
-                    } else {
-                        nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
-                        if (nav->selected_index == 0) {
-                            if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                                memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            }
-                            nav->first_visible_item = 0;
-                        }
-                    }
-                    break;
-            }
+            handle_item_operation_down(nav, current_item);
             break;
             
         case KEY_RIGHT:
@@ -580,7 +561,7 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                 case MENU_TYPE_NORMAL:
                     if (current_item->children_count > 0) {
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                        navigator_mark_all_lines_dirty(nav);  // 标记所有行为脏，确保完全刷新
+                        navigator_mark_all_lines_dirty(nav);
                         nav->current_menu->saved_selected_index = nav->selected_index;
                         nav->current_menu->saved_first_visible_item = nav->first_visible_item;
                         nav->current_menu = current_item;
@@ -588,7 +569,7 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                         nav->first_visible_item = 0;
                     } else if (current_item->app_func) {
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                        navigator_mark_all_lines_dirty(nav);  // 标记所有行为脏，确保完全刷新
+                        navigator_mark_all_lines_dirty(nav);
                         nav->in_app_mode = true;
                         nav->app_saved_selected_index = nav->selected_index;
                         current_item->app_func(current_item->app_args);
@@ -603,7 +584,7 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                         nav->first_visible_item = nav->selected_index;
                         if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
                             memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            navigator_mark_all_lines_dirty(nav);  // 标记所有行为脏，确保完全刷新
+                            navigator_mark_all_lines_dirty(nav);
                         }
                     }
                     break;
@@ -620,7 +601,7 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                 case MENU_TYPE_NORMAL:
                     if (nav->current_menu->parent_item) {
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                        navigator_mark_all_lines_dirty(nav);  // 标记所有行为脏，确保完全刷新
+                        navigator_mark_all_lines_dirty(nav);
                         nav->current_menu = nav->current_menu->parent_item;
                         nav->selected_index = nav->current_menu->saved_selected_index;
                         nav->first_visible_item = nav->current_menu->saved_first_visible_item;
@@ -632,15 +613,13 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                         current_item->is_locked = true;
                         nav->first_visible_item = nav->saved_first_visible_item_before_exhibition;
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                        navigator_mark_all_lines_dirty(nav);  // 标记所有行为脏，确保完全刷新
-                    } else {
-                        if (nav->current_menu->parent_item) {
-                            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            navigator_mark_all_lines_dirty(nav);  // 标记所有行为脏，确保完全刷新
-                            nav->current_menu = nav->current_menu->parent_item;
-                            nav->selected_index = nav->current_menu->saved_selected_index;
-                            nav->first_visible_item = nav->current_menu->saved_first_visible_item;
-                        }
+                        navigator_mark_all_lines_dirty(nav);
+                    } else if (nav->current_menu->parent_item) {
+                        memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+                        navigator_mark_all_lines_dirty(nav);
+                        nav->current_menu = nav->current_menu->parent_item;
+                        nav->selected_index = nav->current_menu->saved_selected_index;
+                        nav->first_visible_item = nav->current_menu->saved_first_visible_item;
                     }
                     break;
                     
@@ -648,14 +627,12 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                 case MENU_TYPE_TOGGLE:
                     if (!current_item->is_locked) {
                         current_item->is_locked = true;
-                    } else {
-                        if (nav->current_menu->parent_item) {
-                            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            navigator_mark_all_lines_dirty(nav);  // 标记所有行为脏，确保完全刷新
-                            nav->current_menu = nav->current_menu->parent_item;
-                            nav->selected_index = nav->current_menu->saved_selected_index;
-                            nav->first_visible_item = nav->current_menu->saved_first_visible_item;
-                        }
+                    } else if (nav->current_menu->parent_item) {
+                        memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+                        navigator_mark_all_lines_dirty(nav);
+                        nav->current_menu = nav->current_menu->parent_item;
+                        nav->selected_index = nav->current_menu->saved_selected_index;
+                        nav->first_visible_item = nav->current_menu->saved_first_visible_item;
                     }
                     break;
             }
@@ -665,37 +642,22 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
             break;
     }
     
-    // 处理可见项范围
-    if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-        if (nav->selected_index >= nav->first_visible_item + MAX_DISPLAY_ITEM) {
-            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-            navigator_mark_all_lines_dirty(nav);  // 标记优化更新
-            nav->first_visible_item += MAX_DISPLAY_ITEM;
-        } else if (nav->selected_index < nav->first_visible_item && nav->selected_index != 0) {
-            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-            navigator_mark_all_lines_dirty(nav);  // 标记优化更新
-            nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
-        }
-    }
+    update_visible_range(nav);
 }
 
 /**
- * @brief 刷新显示（使用优化版本）
+ * @brief 刷新显示
  */
 void navigator_refresh_display(navigator_t* nav) {
     if (!nav || !nav->current_menu) return;
     
-    // 执行选中的展示项回调
     menu_item_t* selected_item = nav->current_menu->children_items[nav->selected_index];
     if (selected_item->type == MENU_TYPE_EXHIBITION && !selected_item->is_locked) {
-        // 先写标题和页面信息
         uint8_t title_line = nav->selected_index - nav->first_visible_item;
         char title_buffer[MAX_DISPLAY_CHAR];
         
-        // 统一使用新的显示逻辑：当页数为1时不显示页码，当页数大于1时显示页码
         if (selected_item->data.exhibition.total_pages > 1) {
             fast_string_build(title_buffer, MAX_DISPLAY_CHAR, MENU_HAS_SUBMENU_INDICATOR, selected_item->item_name, "");
-            // 添加分页信息
             char page_info[16];
             snprintf(page_info, sizeof(page_info), "(%d/%d):", 
                     selected_item->data.exhibition.current_page + 1,
@@ -707,12 +669,10 @@ void navigator_refresh_display(navigator_t* nav) {
         
         navigator_write_display_line(nav, title_buffer, title_line);
         
-        // 在执行回调之前，先清空所有可能的显示行（除了标题行）
         for (uint8_t i = 1; i < MAX_DISPLAY_ITEM; i++) {
             navigator_write_display_line(nav, "", i);
         }
         
-        // 统一使用带分页参数的回调函数
         if (selected_item->periodic_callback_with_page) {
             selected_item->periodic_callback_with_page(nav, 
                 selected_item->data.exhibition.current_page,
@@ -764,7 +724,6 @@ void navigator_refresh_display(navigator_t* nav) {
             navigator_write_display_line(nav, line_buffer, i);
         }
         
-        // 清空剩余行
         for (uint8_t i = visible_count; i < MAX_DISPLAY_ITEM; i++) {
             navigator_write_display_line(nav, "", i);
         }
@@ -810,28 +769,25 @@ void navigator_write_display_buffer(navigator_t* nav, const char* buffer, size_t
 }
 
 /**
- * @brief 优化版本的写入显示行（增量更新）
+ * @brief 写入显示行
  */
 void navigator_write_display_line(navigator_t* nav, const char* buffer, uint8_t line) {
     if (!nav || !buffer || line >= MAX_DISPLAY_ITEM) return;
     
-    // 计算新内容的哈希值
     uint32_t new_hash = fast_hash(buffer, MAX_DISPLAY_CHAR);
     
-    // 检查是否需要更新
     if (nav->display_lines[line].state == LINE_STATE_FORCE_UPDATE || 
         nav->display_lines[line].hash != new_hash ||
         string_content_changed(nav->display_lines[line].content, buffer, MAX_DISPLAY_CHAR)) {
         
-        // 更新内容
-        memset(nav->display_lines[line].content, 0, MAX_DISPLAY_CHAR);
-        strncpy(nav->display_lines[line].content, buffer, MAX_DISPLAY_CHAR - 1);
+        fast_memset_char(nav->display_lines[line].content, 0, MAX_DISPLAY_CHAR);
+        fast_strncpy_pad(nav->display_lines[line].content, buffer, MAX_DISPLAY_CHAR - 1);
+        
+        fast_memset_char(&nav->display_buffer[MAX_DISPLAY_CHAR * line], 0, MAX_DISPLAY_CHAR);
+        fast_strncpy_pad(&nav->display_buffer[MAX_DISPLAY_CHAR * line], buffer, MAX_DISPLAY_CHAR - 1);
+        
         nav->display_lines[line].hash = new_hash;
         nav->display_lines[line].state = LINE_STATE_UNCHANGED;
-        
-        // 同步到兼容缓冲区
-        memset(&nav->display_buffer[MAX_DISPLAY_CHAR * line], 0, MAX_DISPLAY_CHAR);
-        strncpy(&nav->display_buffer[MAX_DISPLAY_CHAR * line], buffer, MAX_DISPLAY_CHAR - 1);
     }
 }
 
@@ -842,7 +798,7 @@ void navigator_force_refresh_display(navigator_t* nav) {
     if (!nav) return;
     
     memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-    navigator_mark_all_lines_dirty(nav);  // 标记所有行为脏，确保完全刷新
+    navigator_mark_all_lines_dirty(nav);
     navigator_refresh_display(nav);
 }
 
@@ -1227,6 +1183,123 @@ static void copy_value_by_type(void* dest, void* src, data_type_t type) {
         case DATA_TYPE_DOUBLE:
             *(double*)dest = *(double*)src;
             break;
+    }
+}
+
+/**
+ * @brief 处理向上导航
+ */
+static void handle_navigation_up(navigator_t* nav) {
+    nav->selected_index = (nav->selected_index == 0) 
+        ? (nav->current_menu->children_count - 1) 
+        : (nav->selected_index - 1);
+        
+    if (nav->selected_index == nav->current_menu->children_count - 1) {
+        if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
+            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+        }
+        nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
+    }
+}
+
+/**
+ * @brief 处理向下导航
+ */
+static void handle_navigation_down(navigator_t* nav) {
+    nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
+    
+    if (nav->selected_index == 0) {
+        if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
+            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+        }
+        nav->first_visible_item = 0;
+    }
+}
+
+/**
+ * @brief 处理项目操作（向上）
+ */
+static void handle_item_operation_up(navigator_t* nav, menu_item_t* current_item) {
+    switch (current_item->type) {
+        case MENU_TYPE_EXHIBITION:
+            if (current_item->is_locked) {
+                handle_navigation_up(nav);
+            } else {
+                menu_item_prev_page(current_item);
+            }
+            break;
+            
+        case MENU_TYPE_CHANGEABLE:
+            if (!current_item->is_locked) {
+                menu_item_increment(current_item);
+            } else {
+                handle_navigation_up(nav);
+            }
+            break;
+            
+        case MENU_TYPE_TOGGLE:
+            if (!current_item->is_locked) {
+                menu_item_toggle(current_item);
+            } else {
+                handle_navigation_up(nav);
+            }
+            break;
+            
+        default:
+            handle_navigation_up(nav);
+            break;
+    }
+}
+
+/**
+ * @brief 处理项目操作（向下）
+ */
+static void handle_item_operation_down(navigator_t* nav, menu_item_t* current_item) {
+    switch (current_item->type) {
+        case MENU_TYPE_EXHIBITION:
+            if (current_item->is_locked) {
+                handle_navigation_down(nav);
+            } else {
+                menu_item_next_page(current_item);
+            }
+            break;
+            
+        case MENU_TYPE_CHANGEABLE:
+            if (!current_item->is_locked) {
+                menu_item_decrement(current_item);
+            } else {
+                handle_navigation_down(nav);
+            }
+            break;
+            
+        case MENU_TYPE_TOGGLE:
+            if (!current_item->is_locked) {
+                menu_item_toggle(current_item);
+            } else {
+                handle_navigation_down(nav);
+            }
+            break;
+            
+        default:
+            handle_navigation_down(nav);
+            break;
+    }
+}
+
+/**
+ * @brief 更新可见范围
+ */
+static void update_visible_range(navigator_t* nav) {
+    if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
+        if (nav->selected_index >= nav->first_visible_item + MAX_DISPLAY_ITEM) {
+            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+            navigator_mark_all_lines_dirty(nav);
+            nav->first_visible_item += MAX_DISPLAY_ITEM;
+        } else if (nav->selected_index < nav->first_visible_item && nav->selected_index != 0) {
+            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+            navigator_mark_all_lines_dirty(nav);
+            nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
+        }
     }
 }
 

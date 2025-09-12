@@ -1,5 +1,7 @@
 #include "menu_wrapper.h"
 #include "menu_navigator.h"
+#include <string.h>
+#include <stdio.h>
 
 void* menu_builder(void* mainMenu)
 {
@@ -46,6 +48,32 @@ void menu_refresh_display(void* navigator)
 char* menu_get_display_buffer(void* navigator)
 {
     return navigator_get_display_buffer((navigator_t*)navigator);
+}
+
+void menu_display(void* navigator)
+{
+  menu_refresh_display(navigator);
+  
+  char* display_buffer = menu_get_display_buffer(navigator);
+  
+  for(unsigned char line = 0; line < MAX_DISPLAY_ITEM; line++)
+  {
+        static char line_buffer[MAX_DISPLAY_CHAR + 1];
+        char* line_start = display_buffer + (MAX_DISPLAY_CHAR * line);
+        
+        unsigned char len = 0;
+        while (len < MAX_DISPLAY_CHAR && line_start[len] != '\0') {
+            line_buffer[len] = line_start[len];
+            len++;
+        }
+        
+        while (len < MAX_DISPLAY_CHAR) {
+            line_buffer[len++] = ' ';
+        }
+        line_buffer[MAX_DISPLAY_CHAR] = '\0';
+      
+        menu_show_string(line, line_buffer);
+  }
 }
 
 uint8_t menu_get_app_mode(void* navigator)
@@ -106,4 +134,63 @@ const char* menu_get_current_selected_item_name(void* navigator)
 uint8_t menu_is_in_exhibition_mode(void* navigator)
 {
     return navigator_is_in_exhibition_mode((navigator_t*)navigator) ? 1 : 0;
+}
+
+static menu_item_t* find_item_by_name(menu_item_t* item, const char* name) {
+    if (item == NULL) {
+        return NULL;
+    }
+
+    if (strcmp(item->item_name, name) == 0) {
+        return item;
+    }
+
+    if (item->children_items != NULL) {
+        for (uint8_t i = 0; i < item->children_count; i++) {
+            menu_item_t* found = find_item_by_name(item->children_items[i], name);
+            if (found != NULL) {
+                return found;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+void menu_goto(void* navigator, const char* menu_name)
+{
+    navigator_t* nav = (navigator_t*)navigator;
+    if (!nav || !menu_name) {
+        return;
+    }
+
+    if (navigator_get_app_mode(nav)) {
+        navigator_set_app_mode(nav, false);
+    }
+
+    menu_item_t* root_item = nav->current_menu;
+    while (root_item && root_item->parent_item) {
+        root_item = root_item->parent_item;
+    }
+
+    if (!root_item) {
+        return;
+    }
+
+    menu_item_t* target_item = find_item_by_name(root_item, menu_name);
+
+    if (target_item && target_item->type == MENU_TYPE_NORMAL && target_item->children_count > 0) {
+        nav->current_menu = target_item;
+        nav->selected_index = 0;
+        nav->first_visible_item = 0;
+
+        navigator_force_refresh_display(nav);
+    } else {
+        char* buffer = navigator_get_display_buffer(nav);
+        if (buffer) {
+            memset(buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+            snprintf(buffer, MAX_DISPLAY_CHAR, "No Have %s", menu_name);
+        }
+        navigator_set_app_mode(nav, true);
+    }
 }

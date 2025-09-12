@@ -244,7 +244,6 @@ Easy_Menu 是一个专为嵌入式设备设计的高效菜单管理框架，特�
 | `MAX_DISPLAY_CHAR` | 16 | 每行最大字符数 |
 | `MAX_DISPLAY_ITEM` | 4 | 显示的最大行数 |
 | `MENU_POOL_SIZE` | 64 | 内存池大小（菜单项数量） |
-| `ENABLE_STATIC_ALLOCATION` | 1 | 启用静态内存分配 |
 | `MENU_SELECT_CURSOR` | "->" | 默认选择指示符 |
 | `MENU_HAS_SUBMENU_INDICATOR` | ">>" | 锁定指示符 |
 

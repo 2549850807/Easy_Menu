@@ -10,12 +10,11 @@ typedef struct navigator navigator_t;
 typedef struct menu_item menu_item_t;
 
 // 显示的长宽（字符数量）
-#define MAX_DISPLAY_CHAR 20U
-#define MAX_DISPLAY_ITEM 8U
+#define MAX_DISPLAY_CHAR 16U
+#define MAX_DISPLAY_ITEM 4U
 
 // 内存池配置
-#define MENU_POOL_SIZE 64           // 菜单项内存池大小
-#define ENABLE_STATIC_ALLOCATION 1  // 启用静态分配模式
+#define MENU_POOL_SIZE 64
 
 // 提示字符
 #define MENU_SELECT_CURSOR "->"

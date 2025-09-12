@@ -7,6 +7,16 @@
 extern "C" {
 #endif
 
+/*==============================================================================
+ * 需要用户实现的接口
+ *============================================================================*/
+/**
+ * @brief 在显示器上显示字符串
+ * @param line 当前行（Y 轴）
+ * @param str 需要显示的字符串
+ */
+void menu_show_string(unsigned char line, char* str);
+
 /**
  * @brief 键值定义
  * @note 用于菜单导航的按键操作定义
@@ -77,6 +87,11 @@ void menu_refresh_display(void* navigator);
  */
 char* menu_get_display_buffer(void* navigator);
 
+/**
+ * @brief 更新并显示菜单
+ * @param navigator 菜单导航器指针
+ */
+void menu_display(void* navigator);
 
 /*==============================================================================
  * 菜单状态管理接口
@@ -203,6 +218,18 @@ const char* menu_get_current_selected_item_name(void* navigator);
  */
 
 uint8_t menu_is_in_exhibition_mode(void* navigator);
+
+/**
+ * @brief 跳转到指定名称的菜单项
+ * @param navigator 菜单导航器指针
+ * @param menu_name 目标菜单项的名称
+ * @note 如果找到匹配的菜单项，导航器将跳转到该项。
+ * @note 如果有多个同名菜单项，将跳转到先找到的那个。
+ * @code
+ * menu_goto(navigator, "Kp"); // 跳转到名为 "Kp" 的菜单项
+ * @endcode
+ */
+void menu_goto(void* navigator, const char* menu_name);
 
 #ifdef __cplusplus
 }
