@@ -7,7 +7,7 @@
 ## 快速开始
 
 1. 下载界面右侧发行版中的 `Easy_Menu v1.0.0.zip` 并解压。
-2. 将 `src` 中的文件都添加进工程中
+2. 将 `src` 中的文件都添加进工程中。
 3. 准备好当前显示设备显示字符串的函数，并测试固定字体下，最大为几行，每行可以容纳多少个字符，根据测试结果修改以下参数：
 
 ```C
@@ -18,7 +18,21 @@
 #define MAX_DISPLAY_ITEM 8U
 ```
 
-4. 根据以下代码构建使用程序（注意将代码中的显示字符串的函数，替换为自己的函数）
+4. 在自己的工程中实现 `void menu_show_string(unsigned char line, char* str)` ，添加自己的显示字符串函数即可。
+
+```C
+/**
+ * @brief 在显示器上显示字符串
+ * @param line 当前行（Y 轴）
+ * @param str 需要显示的字符串
+ */
+void menu_show_string(unsigned char line, char* str)
+{
+  OLED_ShowStr(0, line, str, 8);
+}
+```
+
+4. 根据以下代码构建使用程序
 
 ### 基本使用流程
 
@@ -40,27 +54,8 @@ int main(void) {
         uint8_t key = get_key_input(); // 用户实现的按键获取函数
         menu_handle_input(navigator, key);
         
-        // 刷新显示
-        menu_refresh_display(navigator);
-        
-        // 获取显示缓冲区并输出到屏幕
-        char* display_buffer = menu_get_display_buffer(navigator);
-        
-        // 显示字符串
-        for(unsigned char line = 0; line < MAX_DISPLAY_ITEM; line++)
-        {
-              char line_buffer[MAX_DISPLAY_CHAR + 1] = {0};
-              char* line_start = display_buffer + (MAX_DISPLAY_CHAR * line);
-              unsigned char len = strlen(line_start);
-              strncpy(line_buffer, line_start, MAX_DISPLAY_CHAR);
-              for(unsigned char x = len; x < MAX_DISPLAY_CHAR; x++)
-              {
-                  line_buffer[x] = ' ';
-              }
-              line_buffer[MAX_DISPLAY_CHAR] = '\0';
-            
-              OLED_ShowString(0, line, line_buffer, 12, 0); // 替换掉自己的显示字符串的函数
-        }
+        // 刷新显示菜单
+        menu_display(navigator);
         
         delay_ms(50); // 适当延时
     }
@@ -176,6 +171,21 @@ cd Easy_Menu_Builder
 python main.py
 ```
 
+或者在Windows系统中直接运行：
+
+```bash
+Easy_Menu_Builder/run.bat
+```
+
+### 方法3：重新打包程序
+
+如果需要重新打包程序，可以运行：
+
+```bash
+cd Easy_Menu_Builder
+python build.py
+```
+
 ## 使用说明
 
 ### 1. 创建菜单结构
@@ -244,6 +254,7 @@ Easy_Menu 是一个专为嵌入式设备设计的高效菜单管理框架，特�
 | `MAX_DISPLAY_CHAR` | 16 | 每行最大字符数 |
 | `MAX_DISPLAY_ITEM` | 4 | 显示的最大行数 |
 | `MENU_POOL_SIZE` | 64 | 内存池大小（菜单项数量） |
+| `ENABLE_STATIC_ALLOCATION` | 1 | 启用静态内存分配 |
 | `MENU_SELECT_CURSOR` | "->" | 默认选择指示符 |
 | `MENU_HAS_SUBMENU_INDICATOR` | ">>" | 锁定指示符 |
 
@@ -330,7 +341,7 @@ menu_item_t* save_item = menu_create_app_item("Save Config", NULL, save_config_f
 ##### 带导航器的展示项
 
 ```c
-void system_info_callback(navigator_t* nav, uint8_t current_page, uint8_t total_pages) {
+void system_info_callback(navigator_t* nav) {
     char buffer[16];
     
     // 显示CPU使用率
@@ -490,6 +501,10 @@ navigator_exhibition_reset_to_first_page(nav); // 重置到第一页
 2. 头文件包含路径是否正确
 3. 宏定义配置是否合理
 4. 内存分配是否充足
+
+## 许可证
+
+本项目采用MIT许可证，详情请参见[LICENSE](LICENSE)文件。
 
 ## 参考项目
 
