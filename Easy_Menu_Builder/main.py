@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Easy Menu Navigator - 菜单配置生成器
@@ -10,7 +8,6 @@ import sys
 import os
 import traceback
 
-# 添加src目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 try:
@@ -29,11 +26,9 @@ def main():
         app.setApplicationName("Easy Menu Navigator")
         app.setApplicationVersion("1.0.0")
         
-        # 创建并显示主窗口
         window = MainWindow()
         window.show()
         
-        # 运行应用
         sys.exit(app.exec())
         
     except Exception as e:

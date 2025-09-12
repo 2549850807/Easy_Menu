@@ -28,35 +28,32 @@ class MenuItemModel:
     def __init__(self, name: str, item_type: MenuItemType):
         self.name = name
         self.type = item_type
-        self.id = str(uuid.uuid4())  # 添加唯一标识符
+        self.id = str(uuid.uuid4())
         self.children: List['MenuItemModel'] = []
         self.parent: Optional['MenuItemModel'] = None
         
-        # Common attributes
         self.is_locked = True
         
-        # Type-specific attributes
         if item_type == MenuItemType.CHANGEABLE:
             self.data_ref: Any = None
             self.min_val: Any = None
             self.max_val: Any = None
             self.step_val: Any = None
             self.data_type: DataType = DataType.FLOAT
-            self.enable_callback: bool = False  # 是否启用回调函数
-            self.variable_name: str = name  # 变量名称，默认与显示名称相同
+            self.enable_callback: bool = False
+            self.variable_name: str = name
         elif item_type == MenuItemType.TOGGLE:
             self.state: bool = False
             self.state_ref: Any = None
-            self.enable_callback: bool = False  # 是否启用回调函数
-            self.variable_name: str = name  # 变量名称，默认与显示名称相同
+            self.enable_callback: bool = False
+            self.variable_name: str = name
         elif item_type == MenuItemType.APPLICATION:
             self.app_args: Any = None
-            self.enable_callback: bool = True  # 应用菜单项默认开启回调函数
+            self.enable_callback: bool = True
         elif item_type == MenuItemType.EXHIBITION:
             self.total_pages: int = 1
             self.current_page: int = 0
-            # 移除callback_type字段，不再区分Page和Nav模式
-            self.enable_callback: bool = True  # 展示菜单项默认开启回调函数
+            self.enable_callback: bool = True
 
     def add_child(self, child: 'MenuItemModel'):
         """添加子菜单项"""
@@ -83,11 +80,10 @@ class MenuItemModel:
         result = {
             "name": self.name,
             "type": self.type.value,
-            "id": self.id,  # 添加id到字典
+            "id": self.id,
             "is_locked": self.is_locked
         }
         
-        # 添加变量名称（如果存在）
         if hasattr(self, 'variable_name'):
             result["variable_name"] = self.variable_name
         
@@ -105,14 +101,13 @@ class MenuItemModel:
                 "enable_callback": self.enable_callback
             })
         elif self.type == MenuItemType.APPLICATION:
-            result["enable_callback"] = self.enable_callback  # 应用菜单项默认开启回调函数
+            result["enable_callback"] = self.enable_callback
         elif self.type == MenuItemType.EXHIBITION:
             result.update({
                 "total_pages": self.total_pages,
                 "enable_callback": self.enable_callback
             })
             
-        # 递归添加子菜单项
         if self.children:
             result["children"] = [child.to_dict() for child in self.children]
             
@@ -122,10 +117,9 @@ class MenuItemModel:
     def from_dict(cls, data: dict) -> 'MenuItemModel':
         """从字典创建菜单项"""
         item = cls(data["name"], MenuItemType(data["type"]))
-        item.id = data.get("id", str(uuid.uuid4()))  # 从字典读取id，如果没有则生成新的
+        item.id = data.get("id", str(uuid.uuid4()))
         item.is_locked = data.get("is_locked", True)
         
-        # 设置变量名称（如果存在）
         if "variable_name" in data:
             item.variable_name = data["variable_name"]
         
@@ -139,13 +133,11 @@ class MenuItemModel:
             item.state = data.get("state", False)
             item.enable_callback = data.get("enable_callback", False)
         elif item.type == MenuItemType.APPLICATION:
-            item.enable_callback = data.get("enable_callback", True)  # 应用菜单项默认开启回调函数
+            item.enable_callback = data.get("enable_callback", True)
         elif item.type == MenuItemType.EXHIBITION:
             item.total_pages = data.get("total_pages", 1)
-            # 从数据中读取enable_callback，如果没有则默认为True
             item.enable_callback = data.get("enable_callback", True)
             
-        # 递归创建子菜单项
         if "children" in data:
             for child_data in data["children"]:
                 child = cls.from_dict(child_data)

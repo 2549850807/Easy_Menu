@@ -25,10 +25,8 @@ class CodeHighlighter(QSyntaxHighlighter):
         super().__init__(parent)
         self.highlighting_rules = []
         
-        # 获取更鲜明的配色方案
         colors = StyleManager.get_brighter_color_scheme()
         
-        # 关键字格式
         keyword_format = QTextCharFormat()
         keyword_format.setForeground(QColor(colors['keyword']))
         keyword_format.setFontWeight(QFont.Weight.Bold)
@@ -47,38 +45,32 @@ class CodeHighlighter(QSyntaxHighlighter):
             pattern = QRegularExpression(r'\b' + word + r'\b')
             self.highlighting_rules.append((pattern, keyword_format))
         
-        # 函数格式
         function_format = QTextCharFormat()
         function_format.setForeground(QColor(colors['function']))
         function_format.setFontWeight(QFont.Weight.Bold)
         self.highlighting_rules.append((QRegularExpression(r'\b[A-Za-z0-9_]+(?=\()'), function_format))
         
-        # 数字格式
         number_format = QTextCharFormat()
         number_format.setForeground(QColor(colors['number']))
         self.highlighting_rules.append((QRegularExpression(r'\b[0-9]+\b'), number_format))
         self.highlighting_rules.append((QRegularExpression(r'\b[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?[fF]?\b'), number_format))
         
-        # 字符串格式
         string_format = QTextCharFormat()
         string_format.setForeground(QColor(colors['string']))
         self.highlighting_rules.append((QRegularExpression(r'".*"'), string_format))
         self.highlighting_rules.append((QRegularExpression(r"'.*'"), string_format))
         
-        # 注释格式
         comment_format = QTextCharFormat()
         comment_format.setForeground(QColor(colors['comment']))
         comment_format.setFontItalic(True)
         self.highlighting_rules.append((QRegularExpression(r'//.*'), comment_format))
         self.highlighting_rules.append((QRegularExpression(r'/\*.*\*/'), comment_format))
         
-        # 预处理指令格式
         preprocessor_format = QTextCharFormat()
         preprocessor_format.setForeground(QColor(colors['preprocessor']))
         preprocessor_format.setFontWeight(QFont.Weight.Bold)
         self.highlighting_rules.append((QRegularExpression(r'^\s*#.*'), preprocessor_format))
         
-        # 类型格式
         type_format = QTextCharFormat()
         type_format.setForeground(QColor(colors['type']))
         type_format.setFontWeight(QFont.Weight.Bold)
@@ -102,41 +94,34 @@ class SimulatorConfigDialog(QDialog):
     """仿真器配置对话框"""
     def __init__(self, main_simulator, parent=None):
         super().__init__(parent)
-        self.main_simulator = main_simulator  # 保存主仿真器的引用
+        self.main_simulator = main_simulator
         self.setWindowTitle("仿真器配置")
-        self.setModal(False)  # 非模态对话框
+        self.setModal(False)
         self.resize(400, 300)
         
-        # 创建一个新的仿真器实例用于配置界面
         from ..utils.simulator import Simulator
         self.config_simulator = Simulator()
         
-        # 创建配置面板
         layout = QVBoxLayout(self)
         self.config_group = self.config_simulator.create_config_panel()
         layout.addWidget(self.config_group)
         
-        # 添加说明标签
         info_label = QLabel("在此配置仿真器参数，配置将应用于代码预览界面中的仿真器")
         info_label.setStyleSheet("color: gray; font-style: italic;")
         layout.addWidget(info_label)
         
-        # 连接配置变化信号
         self.config_simulator.max_display_char_edit.textChanged.connect(self.on_config_changed)
         self.config_simulator.max_display_item_edit.textChanged.connect(self.on_config_changed)
         self.config_simulator.menu_select_cursor_edit.textChanged.connect(self.on_config_changed)
         self.config_simulator.menu_has_submenu_indicator_edit.textChanged.connect(self.on_config_changed)
         
-        # 加载主仿真器的配置
         self.load_config_from_main()
 
     def on_config_changed(self):
         """当配置更改时的处理"""
-        # 这里可以添加同步逻辑，如果需要的话
 
     def load_config_from_main(self):
         """从主仿真器加载配置"""
-        # 从主仿真器同步配置到配置对话框
         self.config_simulator.max_display_char_edit.setText(str(self.main_simulator.MAX_DISPLAY_CHAR))
         self.config_simulator.max_display_item_edit.setText(str(self.main_simulator.MAX_DISPLAY_ITEM))
         self.config_simulator.menu_select_cursor_edit.setText(self.main_simulator.MENU_SELECT_CURSOR)
@@ -145,26 +130,21 @@ class SimulatorConfigDialog(QDialog):
     def apply_config_to_main(self):
         """将配置应用到主仿真器"""
         try:
-            # 保存配置到主仿真器
             self.main_simulator.MAX_DISPLAY_CHAR = int(self.config_simulator.max_display_char_edit.text())
             self.main_simulator.MAX_DISPLAY_ITEM = int(self.config_simulator.max_display_item_edit.text())
             self.main_simulator.MENU_SELECT_CURSOR = self.config_simulator.menu_select_cursor_edit.text()
             self.main_simulator.MENU_HAS_SUBMENU_INDICATOR = self.config_simulator.menu_has_submenu_indicator_edit.text()
             
-            # 验证提示字符长度
             self.main_simulator._validate_cursor_indicators()
             
-            # 更新显示区域大小
             self.main_simulator._update_display_size()
             
-            # 刷新显示
             self.main_simulator.refresh_display()
         except (ValueError, Exception) as e:
             print(f"应用配置时出错: {e}")
 
     def closeEvent(self, event):
         """对话框关闭事件"""
-        # 将配置应用到主仿真器
         self.apply_config_to_main()
         super().closeEvent(event)
 
@@ -174,9 +154,7 @@ class MainWindow(QMainWindow):
         self.menu_controller = MenuController()
         self.file_controller = FileController()
         self.init_ui()
-        # 初始化时新建一个文件
         self.new_file()
-        # 应用苹果风格与Fluent设计结合的样式
         StyleManager.apply_apple_fluent_style()
 
     def init_ui(self):
@@ -184,25 +162,19 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Easy_Menu 菜单配置器")
         self.setGeometry(100, 100, 1400, 800)
 
-        # 创建菜单栏
         self.create_menu_bar()
 
-        # 创建中央部件
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
 
-        # 创建标签页控件
         self.tab_widget = QTabWidget()
         main_layout.addWidget(self.tab_widget)
 
-        # 文件标签页
         self.create_file_tab()
         
-        # 代码预览标签页
         self.create_code_preview_tab()
 
-        # 连接信号
         self.menu_tree_view.item_selected.connect(self.property_panel.set_current_item)
         self.property_panel.properties_changed.connect(self.on_properties_changed)
 
@@ -210,7 +182,6 @@ class MainWindow(QMainWindow):
         """创建菜单栏"""
         menubar = self.menuBar()
 
-        # 文件菜单
         file_menu = menubar.addMenu('文件')
 
         new_action = file_menu.addAction('新建')
@@ -239,7 +210,6 @@ class MainWindow(QMainWindow):
         exit_action.setShortcut('Ctrl+Q')
         exit_action.triggered.connect(self.close)
         
-        # 添加仿真器配置按钮到菜单栏
         config_action = menubar.addAction('仿真器配置')
         config_action.triggered.connect(self.open_simulator_config)
 
@@ -247,13 +217,10 @@ class MainWindow(QMainWindow):
         """打开仿真器配置对话框"""
         try:
             if hasattr(self, 'simulator'):
-                # 创建并显示配置对话框
                 if not hasattr(self, 'simulator_config_dialog') or not self.simulator_config_dialog.isVisible():
                     self.simulator_config_dialog = SimulatorConfigDialog(self.simulator, self)
-                    # 连接配置对话框和主仿真器之间的同步
                     self._connect_simulator_configs()
                 else:
-                    # 如果对话框已经存在，重新加载主仿真器的配置
                     self.simulator_config_dialog.load_config_from_main()
                     
                 self.simulator_config_dialog.show()
@@ -265,14 +232,13 @@ class MainWindow(QMainWindow):
     def _connect_simulator_configs(self):
         """连接主仿真器和配置对话框的配置同步"""
         if hasattr(self, 'simulator') and hasattr(self, 'simulator_config_dialog'):
-            # 断开之前的连接以避免重复连接
             try:
                 self.simulator.max_display_char_edit.textChanged.disconnect()
                 self.simulator.max_display_item_edit.textChanged.disconnect()
                 self.simulator.menu_select_cursor_edit.textChanged.disconnect()
                 self.simulator.menu_has_submenu_indicator_edit.textChanged.disconnect()
             except TypeError:
-                pass  # 如果没有连接则忽略
+                pass
                 
             try:
                 self.simulator_config_dialog.config_simulator.max_display_char_edit.textChanged.disconnect()
@@ -280,10 +246,8 @@ class MainWindow(QMainWindow):
                 self.simulator_config_dialog.config_simulator.menu_select_cursor_edit.textChanged.disconnect()
                 self.simulator_config_dialog.config_simulator.menu_has_submenu_indicator_edit.textChanged.disconnect()
             except TypeError:
-                pass  # 如果没有连接则忽略
+                pass
             
-            # 重新连接信号
-            # 主仿真器到配置对话框的同步
             self.simulator.max_display_char_edit.textChanged.connect(
                 self.simulator_config_dialog.config_simulator.max_display_char_edit.setText)
             self.simulator.max_display_item_edit.textChanged.connect(
@@ -293,7 +257,6 @@ class MainWindow(QMainWindow):
             self.simulator.menu_has_submenu_indicator_edit.textChanged.connect(
                 self.simulator_config_dialog.config_simulator.menu_has_submenu_indicator_edit.setText)
                 
-            # 配置对话框到主仿真器的同步
             self.simulator_config_dialog.config_simulator.max_display_char_edit.textChanged.connect(
                 self.simulator.max_display_char_edit.setText)
             self.simulator_config_dialog.config_simulator.max_display_item_edit.textChanged.connect(
@@ -303,7 +266,6 @@ class MainWindow(QMainWindow):
             self.simulator_config_dialog.config_simulator.menu_has_submenu_indicator_edit.textChanged.connect(
                 self.simulator.menu_has_submenu_indicator_edit.setText)
                 
-            # 连接配置变化信号到主仿真器的配置应用函数
             self.simulator_config_dialog.config_simulator.max_display_char_edit.textChanged.connect(
                 self.simulator.on_config_changed)
             self.simulator_config_dialog.config_simulator.max_display_item_edit.textChanged.connect(
@@ -315,21 +277,16 @@ class MainWindow(QMainWindow):
 
     def create_file_tab(self):
         """创建文件标签页"""
-        # 使用QSplitter支持自适应左右拉伸
         file_splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # 左侧：菜单树视图
         self.menu_tree_view = MenuTreeView(self.menu_controller)
         file_splitter.addWidget(self.menu_tree_view)
 
-        # 右侧：属性面板
         self.property_panel = PropertyPanel(self.menu_controller)
         file_splitter.addWidget(self.property_panel)
         
-        # 设置初始比例（左侧占2/3，右侧占1/3）
         file_splitter.setSizes([400, 200])
         
-        # 设置最小宽度
         self.menu_tree_view.setMinimumWidth(200)
         self.property_panel.setMinimumWidth(150)
 
@@ -337,10 +294,8 @@ class MainWindow(QMainWindow):
 
     def create_code_preview_tab(self):
         """创建代码预览标签页"""
-        # 使用QSplitter支持自适应左右拉伸
         code_splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # 左侧：代码预览
         code_preview_layout = QVBoxLayout()
         self.code_preview = QTextEdit()
         self.code_preview.setReadOnly(True)
@@ -348,39 +303,31 @@ class MainWindow(QMainWindow):
         self.code_preview.setFontPointSize(10)
         self.code_preview.setPlaceholderText("生成的C代码将显示在这里...")
         
-        # 应用代码高亮
         self.highlighter = CodeHighlighter(self.code_preview.document())
         
         code_preview_layout.addWidget(self.code_preview)
         
-        # 生成代码按钮
         generate_btn = QPushButton("生成代码")
         generate_btn.setObjectName("primaryButton")
         generate_btn.clicked.connect(self.generate_code)
         code_preview_layout.addWidget(generate_btn)
         
-        # 将代码预览区域添加到左侧
         code_preview_widget = QWidget()
         code_preview_widget.setLayout(code_preview_layout)
         code_splitter.addWidget(code_preview_widget)
         
-        # 右侧：仿真界面
         try:
             from ..utils.simulator import Simulator
             self.simulator = Simulator()
-            # 隐藏配置面板
             self.simulator.config_group.hide()
             code_splitter.addWidget(self.simulator)
         except ImportError as e:
-            # 如果仿真器导入失败，显示错误信息
             error_label = QLabel(f"仿真器加载失败: {str(e)}")
             error_label.setStyleSheet("color: red; font-weight: bold;")
             code_splitter.addWidget(error_label)
         
-        # 设置初始比例（左侧占3/4，右侧占1/4）
         code_splitter.setSizes([600, 200])
         
-        # 设置最小宽度
         code_preview_widget.setMinimumWidth(300)
         
         self.tab_widget.addTab(code_splitter, "代码预览")
@@ -440,17 +387,14 @@ class MainWindow(QMainWindow):
             code = self.menu_controller.generate_c_code()
             self.code_preview.setPlainText(code)
             
-            # 更新仿真器的菜单配置
             try:
                 if hasattr(self, 'simulator'):
                     self.simulator.set_menu_config(self.menu_controller.config)
             except Exception as e:
                 print(f"更新仿真器配置时出错: {e}")
             
-            # 切换到代码预览标签页
             self.tab_widget.setCurrentIndex(1)
             
-            # 询问是否保存到文件
             reply = QMessageBox.question(
                 self, '生成代码', '代码已生成，是否保存到文件？',
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)

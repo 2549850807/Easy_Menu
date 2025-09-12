@@ -6,7 +6,7 @@ class MenuConfigModel:
     def __init__(self):
         self.root_item: Optional[MenuItemModel] = None
         self.variables: Dict[str, Any] = {}
-        self.callbacks: Dict[str, str] = {}  # callback_name -> callback_code
+        self.callbacks: Dict[str, str] = {}
 
     def set_root_item(self, item: MenuItemModel):
         """设置根菜单项"""

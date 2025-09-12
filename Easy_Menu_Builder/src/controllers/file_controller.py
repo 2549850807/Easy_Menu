@@ -11,15 +11,12 @@ class FileController:
 
     def new_file(self):
         """创建新文件"""
-        # 创建默认的根菜单项
         from ..models.menu_item_model import MenuItemModel, MenuItemType
         root_item = MenuItemModel("Main", MenuItemType.NORMAL)
         
-        # 创建新的配置
         self.config = MenuConfigModel()
         self.config.set_root_item(root_item)
         
-        # 清空文件路径
         self.current_file_path = None
 
     def save_file(self, file_path: Optional[str] = None) -> bool:

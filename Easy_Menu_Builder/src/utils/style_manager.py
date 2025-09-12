@@ -6,43 +6,40 @@ import sys
 class StyleManager:
     """样式管理器，负责应用UI美化样式"""
     
-    # Fluent设计颜色调色板
     FLUENT_COLORS = {
-        'primary': '#0078D4',      # 主要颜色 - 蓝色
-        'secondary': '#4C4A48',    # 次要颜色 - 灰色
-        'success': '#107C10',      # 成功颜色 - 绿色
-        'warning': '#F2C811',      # 警告颜色 - 黄色
-        'error': '#E81123',        # 错误颜色 - 红色
-        'background': '#FFFFFF',   # 背景颜色 - 白色
-        'surface': '#F3F2F1',      # 表面颜色 - 浅灰色
-        'text_primary': '#201F1E', # 主要文字颜色 - 深灰色
-        'text_secondary': '#605E5C' # 次要文字颜色 - 中灰色
+        'primary': '#0078D4',
+        'secondary': '#4C4A48',
+        'success': '#107C10',
+        'warning': '#F2C811',
+        'error': '#E81123',
+        'background': '#FFFFFF',
+        'surface': '#F3F2F1',
+        'text_primary': '#201F1E',
+        'text_secondary': '#605E5C'
     }
     
-    # 苹果风格颜色调色板
     APPLE_COLORS = {
-        'primary': '#007AFF',      # 主要颜色 - 蓝色
-        'secondary': '#8E8E93',    # 次要颜色 - 灰色
-        'success': '#34C759',      # 成功颜色 - 绿色
-        'warning': '#FF9500',      # 警告颜色 - 橙色
-        'error': '#FF3B30',        # 错误颜色 - 红色
-        'background': '#F2F2F7',   # 背景颜色 - 浅灰色
-        'surface': '#FFFFFF',      # 表面颜色 - 白色
-        'text_primary': '#000000', # 主要文字颜色 - 黑色
-        'text_secondary': '#8E8E93' # 次要文字颜色 - 灰色
+        'primary': '#007AFF',
+        'secondary': '#8E8E93',
+        'success': '#34C759',
+        'warning': '#FF9500',
+        'error': '#FF3B30',
+        'background': '#F2F2F7',
+        'surface': '#FFFFFF',
+        'text_primary': '#000000',
+        'text_secondary': '#8E8E93'
     }
     
-    # 清新简约配色方案
     FRESH_COLORS = {
-        'primary': '#4A90E2',      # 清新蓝色
-        'secondary': '#7B8A8B',    # 灰绿色
-        'success': '#50C878',      # 翠绿色
-        'warning': '#FFA500',      # 橙色
-        'error': '#FF6347',        # 珊瑚红
-        'background': '#F8F9FA',   # 极浅灰
-        'surface': '#FFFFFF',      # 白色
-        'text_primary': '#2C3E50', # 深蓝灰
-        'text_secondary': '#7F8C8D' # 灰色
+        'primary': '#4A90E2',
+        'secondary': '#7B8A8B',
+        'success': '#50C878',
+        'warning': '#FFA500',
+        'error': '#FF6347',
+        'background': '#F8F9FA',
+        'surface': '#FFFFFF',
+        'text_primary': '#2C3E50',
+        'text_secondary': '#7F8C8D'
     }
     
     @staticmethod
@@ -52,10 +49,8 @@ class StyleManager:
         if not app:
             return
             
-        # 获取颜色调色板
-        colors = StyleManager.FRESH_COLORS  # 使用清新的配色方案
+        colors = StyleManager.FRESH_COLORS
         
-        # 苹果风格与Fluent设计结合的样式表
         style_sheet = f"""
         /* 主窗口样式 */
         QMainWindow {{
@@ -508,28 +503,28 @@ class StyleManager:
     def get_vscode_color_scheme():
         """获取更鲜明的VSCode配色方案"""
         return {
-            'keyword': '#569CD6',      # 关键字 - 蓝色
-            'function': '#DCDCAA',     # 函数 - 黄色
-            'string': '#CE9178',       # 字符串 - 橙色
-            'comment': '#6A9955',      # 注释 - 绿色
-            'type': '#4EC9B0',         # 类型 - 青色
-            'number': '#B5CEA8',       # 数字 - 浅绿色
-            'operator': '#D4D4D4',     # 操作符 - 浅灰色
-            'preprocessor': '#C586C0', # 预处理指令 - 紫色
-            'default': '#D4D4D4'       # 默认文本 - 浅灰色
+            'keyword': '#569CD6',
+            'function': '#DCDCAA',
+            'string': '#CE9178',
+            'comment': '#6A9955',
+            'type': '#4EC9B0',
+            'number': '#B5CEA8',
+            'operator': '#D4D4D4',
+            'preprocessor': '#C586C0',
+            'default': '#D4D4D4'
         }
         
     @staticmethod
     def get_brighter_color_scheme():
         """获取更鲜明的配色方案"""
         return {
-            'keyword': '#0066CC',      # 关键字 - 鲜艳蓝色
-            'function': '#FF9900',     # 函数 - 橙色
-            'string': '#CC3333',       # 字符串 - 红色
-            'comment': '#009900',      # 注释 - 绿色
-            'type': '#9900CC',         # 类型 - 紫色
-            'number': '#FF6600',       # 数字 - 橙红色
-            'operator': '#333333',     # 操作符 - 深灰色
-            'preprocessor': '#CC00CC', # 预处理指令 - 紫红色
-            'default': '#000000'       # 默认文本 - 黑色
+            'keyword': '#0066CC',
+            'function': '#FF9900',
+            'string': '#CC3333',
+            'comment': '#009900',
+            'type': '#9900CC',
+            'number': '#FF6600',
+            'operator': '#333333',
+            'preprocessor': '#CC00CC',
+            'default': '#000000'
         }

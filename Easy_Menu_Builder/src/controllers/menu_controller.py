@@ -17,25 +17,20 @@ class MenuController:
 
     def new_file(self):
         """创建新文件"""
-        # 清除当前配置
         self.config = MenuConfigModel()
         
-        # 创建默认的根菜单项
         root_item = self.create_new_menu_item("Main", MenuItemType.NORMAL)
         self.config.set_root_item(root_item)
         
-        # 设置当前项
         self.current_item = root_item
 
     def add_menu_item(self, parent: Optional[MenuItemModel], item: MenuItemModel):
         """添加菜单项到指定父项"""
         if parent is None:
-            # 如果没有父项，且根项不存在，则设置为根项
             if self.config.root_item is None:
                 self.config.set_root_item(item)
                 self.current_item = item
             else:
-                # 如果根项已存在，将新项添加为根项的子项
                 self.config.root_item.add_child(item)
         else:
             parent.add_child(item)
@@ -71,7 +66,6 @@ class MenuController:
     def paste_menu_item(self, parent: MenuItemModel) -> Optional[MenuItemModel]:
         """从剪贴板粘贴菜单项"""
         if self.clipboard_item:
-            # 创建副本
             new_item = self._clone_menu_item(self.clipboard_item)
             self.add_menu_item(parent, new_item)
             return new_item
@@ -82,7 +76,6 @@ class MenuController:
         cloned = MenuItemModel(item.name, item.type)
         cloned.is_locked = item.is_locked
         
-        # 复制类型特定属性
         if item.type == MenuItemType.CHANGEABLE:
             cloned.data_type = item.data_type
             cloned.min_val = item.min_val
@@ -99,7 +92,6 @@ class MenuController:
             cloned.callback_type = item.callback_type
             cloned.enable_callback = item.enable_callback
             
-        # 递归克隆子项
         for child in item.children:
             cloned_child = self._clone_menu_item(child)
             cloned.add_child(cloned_child)
