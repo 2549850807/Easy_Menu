@@ -43,8 +43,7 @@ class CodeGenerator:
             "// 获取主菜单项",
             "void* getMainItem(void) {",
             "    return Create_Main_Menu();",
-            "}",
-            ""
+            "}"
         ]
         
         return "\n".join(code_parts)
@@ -149,7 +148,7 @@ class CodeGenerator:
                     lines.append("    /* TODO: 实现应用回调函数 */")
                     lines.append("}")
                 elif callback_type == "navigator_t* nav":
-                    lines.append(f"void {callback_name}(navigator_t* nav, uint8_t current_page, uint8_t total_pages) {{")
+                    lines.append(f"void {callback_name}(navigator_t* nav) {{")
                     lines.append("    char buffer[MAX_DISPLAY_CHAR];")
                     lines.append("    /* TODO: 实现无分页展示回调函数 */")
                     lines.append("    snprintf(buffer, sizeof(buffer), \"data1\");")
@@ -227,15 +226,10 @@ class CodeGenerator:
         elif item.type == MenuItemType.EXHIBITION:
             # 展示菜单项默认开启回调函数
             # 使用新的回调函数命名规则，不再区分Page和Nav模式
-            callback_name = f"{self._capitalize_name(item.name)}_Exhibition_Callback"
+            callback_name = f"Page_Nav_Callback"
             callbacks.add(callback_name)
-            # 根据页数决定回调函数签名
-            if item.total_pages == 1:
-                # Nav模式使用不带分页参数的回调函数签名
-                callback_types[callback_name] = "navigator_t* nav"
-            else:
-                # Page模式使用带分页参数的回调函数签名
-                callback_types[callback_name] = "navigator_t* nav, uint8_t current_page, uint8_t total_pages"
+            # 统一使用带分页参数的回调函数签名
+            callback_types[callback_name] = "navigator_t* nav, uint8_t current_page, uint8_t total_pages"
             callback_items[callback_name] = item
             
         # 递归处理子项
@@ -376,7 +370,7 @@ class CodeGenerator:
         elif item.type == MenuItemType.EXHIBITION:
             # 展示菜单项
             # 使用新的回调函数命名规则，不再区分Page和Nav模式
-            callback_name = f"{self._capitalize_name(item.name)}_Exhibition_Callback"
+            callback_name = f"Page_Nav_Callback"
             # 检查是否启用了回调函数
             if item.enable_callback:  # 展示菜单项默认开启回调函数
                 # 使用统一的menu_create_exhibition_item函数
