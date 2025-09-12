@@ -331,7 +331,7 @@ menu_item_t* save_item = menu_create_app_item("Save Config", NULL, save_config_f
 ##### 带导航器的展示项
 
 ```c
-void system_info_callback(navigator_t* nav) {
+void system_info_callback(navigator_t* nav, uint8_t current_page, uint8_t total_pages) {
     char buffer[16];
     
     // 显示CPU使用率
@@ -491,10 +491,6 @@ navigator_exhibition_reset_to_first_page(nav); // 重置到第一页
 2. 头文件包含路径是否正确
 3. 宏定义配置是否合理
 4. 内存分配是否充足
-
-## 许可证
-
-本项目采用MIT许可证，详情请参见[LICENSE](LICENSE)文件。
 
 ## 参考项目
 
