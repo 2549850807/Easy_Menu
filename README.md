@@ -21,6 +21,7 @@
 4. 在自己的工程中实现 `void menu_show_string(unsigned char line, char* str)` ，添加自己的显示字符串函数即可。
 
 ```C
+#include "menu_wrapper.h"
 /**
  * @brief 在显示器上显示字符串
  * @param line 当前行（Y 轴）
