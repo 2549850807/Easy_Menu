@@ -114,16 +114,8 @@ Easy_Menu/
 │   │   ├── models/             # 数据模型
 │   │   ├── utils/              # 工具类
 │   │   └── views/              # 视图组件
-│   ├── dist/                   # 打包后的可执行程序
-│   │   └── Easy_Menu_Builder/  # Windows可执行程序
-│   │       ├── Easy_Menu_Builder.exe  # 应用程序主程序
-│   │       └── _internal/      # 应用程序依赖文件
 │   ├── main.py                 # 程序入口
-│   ├── build.py                # 打包脚本
-│   ├── package.py              # 分发脚本
 │   ├── requirements.txt        # 依赖列表
-│   ├── README.md              # 说明文档
-│   └── run.bat                # Windows运行脚本
 ├── examples/                   # 示例文件
 │   └── test.json              # 示例配置文件
 ├── generated/                  # 生成的代码文件
@@ -134,10 +126,6 @@ Easy_Menu/
 │   ├── menu_navigator.h       # 菜单导航器头文件
 │   ├── menu_wrapper.c         # 菜单包装器实现
 │   └── menu_wrapper.h         # 菜单包装器头文件
-├── releases/                   # 发布版本
-│   └── Easy_Menu_Builder/      # 可直接运行的Windows应用程序
-│       ├── Easy_Menu_Builder.exe  # 应用程序主程序
-│       └── _internal/          # 应用程序依赖文件
 └── README.md                  # 项目说明文档
 ```
 
@@ -148,7 +136,7 @@ Easy_Menu/
 直接运行打包好的Windows应用程序，无需安装Python环境：
 
 ```bash
-releases/Easy_Menu_Builder/Easy_Menu_Builder.exe
+Easy_Menu_Builder/Easy_Menu_Builder.exe
 ```
 
 ### 方法2：从源代码运行
@@ -173,19 +161,6 @@ python main.py
 ```
 
 或者在Windows系统中直接运行：
-
-```bash
-Easy_Menu_Builder/run.bat
-```
-
-### 方法3：重新打包程序
-
-如果需要重新打包程序，可以运行：
-
-```bash
-cd Easy_Menu_Builder
-python build.py
-```
 
 ## 使用说明
 
@@ -255,7 +230,6 @@ Easy_Menu 是一个专为嵌入式设备设计的高效菜单管理框架，特�
 | `MAX_DISPLAY_CHAR` | 16 | 每行最大字符数 |
 | `MAX_DISPLAY_ITEM` | 4 | 显示的最大行数 |
 | `MENU_POOL_SIZE` | 64 | 内存池大小（菜单项数量） |
-| `ENABLE_STATIC_ALLOCATION` | 1 | 启用静态内存分配 |
 | `MENU_SELECT_CURSOR` | "->" | 默认选择指示符 |
 | `MENU_HAS_SUBMENU_INDICATOR` | ">>" | 锁定指示符 |
 
@@ -502,10 +476,6 @@ navigator_exhibition_reset_to_first_page(nav); // 重置到第一页
 2. 头文件包含路径是否正确
 3. 宏定义配置是否合理
 4. 内存分配是否充足
-
-## 许可证
-
-本项目采用MIT许可证，详情请参见[LICENSE](LICENSE)文件。
 
 ## 参考项目
 
