@@ -88,7 +88,7 @@ class PropertyPanel(QWidget):
         self.form_layout.addRow('显示名称:', self.name_edit)
         
         if self.current_item.type in [MenuItemType.TOGGLE, MenuItemType.CHANGEABLE]:
-            var_name = getattr(self.current_item, 'variable_name', self.current_item.name)
+            var_name = getattr(self.current_item, 'variable_name', self.current_item.name.lower())
             self.variable_name_edit = QLineEdit(var_name)
             self.variable_name_edit.textChanged.connect(self.schedule_auto_save)
             self.form_layout.addRow('变量名称:', self.variable_name_edit)
@@ -189,11 +189,17 @@ class PropertyPanel(QWidget):
         if not self.current_item:
             return
             
-        if hasattr(self, 'name_edit') and self.name_edit:
-            self.current_item.name = self.name_edit.text()
+        try:
+            if hasattr(self, 'name_edit') and self.name_edit and not self.name_edit.isHidden():
+                self.current_item.name = self.name_edit.text()
+        except RuntimeError:
+            pass
         
-        if hasattr(self, 'variable_name_edit') and self.variable_name_edit:
-            self.current_item.variable_name = self.variable_name_edit.text()
+        try:
+            if hasattr(self, 'variable_name_edit') and self.variable_name_edit and not self.variable_name_edit.isHidden():
+                self.current_item.variable_name = self.variable_name_edit.text()
+        except RuntimeError:
+            pass
         
         if self.current_item.type == MenuItemType.CHANGEABLE:
             if hasattr(self, 'data_type_combo') and self.data_type_combo and \

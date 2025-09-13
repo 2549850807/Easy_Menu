@@ -225,7 +225,7 @@ class StyleManager:
         }}
         
         QGroupBox::title {{
-            subcontrol-offset: -14px;
+            subcontrol-position: top;
             padding: 0 10px;
             background-color: transparent;
             color: {colors['text_primary']};

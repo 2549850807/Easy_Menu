@@ -41,12 +41,12 @@ class MenuItemModel:
             self.step_val: Any = None
             self.data_type: DataType = DataType.FLOAT
             self.enable_callback: bool = False
-            self.variable_name: str = name
+            self.variable_name: str = name.lower()
         elif item_type == MenuItemType.TOGGLE:
             self.state: bool = False
             self.state_ref: Any = None
             self.enable_callback: bool = False
-            self.variable_name: str = name
+            self.variable_name: str = name.lower()
         elif item_type == MenuItemType.APPLICATION:
             self.app_args: Any = None
             self.enable_callback: bool = True
