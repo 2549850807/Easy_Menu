@@ -23,6 +23,11 @@ class MenuTreeView(QTreeWidget):
     def init_ui(self):
         """初始化界面"""
         self.setHeaderLabels(['菜单项', '类型'])
+        
+        self.setColumnWidth(0, 400)
+        self.setColumnWidth(1, 80)
+        self.header().setDefaultAlignment(Qt.AlignmentFlag.AlignCenter)
+        
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self.show_context_menu)
         self.itemSelectionChanged.connect(self.on_item_selected)

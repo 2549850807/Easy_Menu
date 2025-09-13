@@ -136,7 +136,7 @@ Easy_Menu/
 直接运行打包好的Windows应用程序，无需安装Python环境：
 
 ```bash
-Easy_Menu_Builder/Easy_Menu_Builder.exe
+Easy_Menu_Builder.exe
 ```
 
 ### 方法2：从源代码运行

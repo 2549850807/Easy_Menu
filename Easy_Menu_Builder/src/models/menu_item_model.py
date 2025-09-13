@@ -12,6 +12,7 @@ class MenuItemType(Enum):
 
 
 class DataType(Enum):
+    BOOL = "bool"
     UINT8 = "uint8"
     UINT16 = "uint16"
     UINT32 = "uint32"
@@ -27,6 +28,7 @@ class DataType(Enum):
     def get_range(data_type: 'DataType') -> tuple:
         """获取数据类型的有效范围 (min_val, max_val)"""
         ranges = {
+            DataType.BOOL: (0, 1),
             DataType.UINT8: (0, 255),
             DataType.UINT16: (0, 65535),
             DataType.UINT32: (0, 4294967295),
@@ -49,7 +51,7 @@ class DataType(Enum):
     @staticmethod
     def is_integer_type(data_type: 'DataType') -> bool:
         """判断是否为整数类型"""
-        return data_type in [DataType.UINT8, DataType.UINT16, DataType.UINT32, DataType.UINT64,
+        return data_type in [DataType.BOOL, DataType.UINT8, DataType.UINT16, DataType.UINT32, DataType.UINT64,
                            DataType.INT8, DataType.INT16, DataType.INT32, DataType.INT64]
 
 

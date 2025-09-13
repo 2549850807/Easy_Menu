@@ -75,7 +75,7 @@ class CodeGenerator:
             if item.type in [MenuItemType.TOGGLE, MenuItemType.CHANGEABLE]:
                 var_name = getattr(item, 'variable_name', item.name)
                 if item.type == MenuItemType.TOGGLE:
-                    variables_with_types[var_name] = (item.state, DataType.UINT8)  # Toggle 使用 bool，但在C中用 uint8_t
+                    variables_with_types[var_name] = (item.state, DataType.BOOL)
                 elif item.type == MenuItemType.CHANGEABLE:
                     if item.data_type in [DataType.FLOAT, DataType.DOUBLE]:
                         variables_with_types[var_name] = (0.0, item.data_type)
@@ -99,7 +99,7 @@ class CodeGenerator:
         config_variables = {}
         for var_name, var_value in self.config.variables.items():
             if isinstance(var_value, bool):
-                config_variables[var_name] = (var_value, DataType.UINT8)  # bool 在C中用 uint8_t
+                config_variables[var_name] = (var_value, DataType.BOOL)
             elif isinstance(var_value, float):
                 config_variables[var_name] = (var_value, DataType.FLOAT)
             elif isinstance(var_value, int):
@@ -412,6 +412,7 @@ class CodeGenerator:
     def _map_data_type(self, data_type: DataType) -> str:
         """映射数据类型到C枚举"""
         mapping = {
+            DataType.BOOL: "DATA_TYPE_BOOL",
             DataType.UINT8: "DATA_TYPE_UINT8",
             DataType.UINT16: "DATA_TYPE_UINT16",
             DataType.UINT32: "DATA_TYPE_UINT32",
@@ -428,6 +429,7 @@ class CodeGenerator:
     def _get_c_type(self, data_type: DataType) -> str:
         """获取数据类型对应的C类型"""
         mapping = {
+            DataType.BOOL: "bool",
             DataType.UINT8: "uint8_t",
             DataType.UINT16: "uint16_t",
             DataType.UINT32: "uint32_t",

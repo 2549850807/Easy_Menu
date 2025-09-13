@@ -376,6 +376,7 @@ class CodeGenerator:
     def _map_data_type(self, data_type: DataType) -> str:
         """映射数据类型到C枚举"""
         mapping = {
+            DataType.BOOL: "DATA_TYPE_BOOL",
             DataType.UINT8: "DATA_TYPE_UINT8",
             DataType.UINT16: "DATA_TYPE_UINT16",
             DataType.UINT32: "DATA_TYPE_UINT32",
@@ -392,6 +393,7 @@ class CodeGenerator:
     def _get_c_type(self, data_type: DataType) -> str:
         """获取数据类型对应的C类型"""
         mapping = {
+            DataType.BOOL: "bool",
             DataType.UINT8: "uint8_t",
             DataType.UINT16: "uint16_t",
             DataType.UINT32: "uint32_t",
