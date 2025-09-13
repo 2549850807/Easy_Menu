@@ -67,37 +67,69 @@ class CodeGenerator:
             
         return variables
 
+    def _collect_variables_with_types_from_items(self) -> Dict[str, tuple]:
+        """从菜单项中收集变量及其类型信息"""
+        variables_with_types = {}
+        
+        def collect_from_item(item: MenuItemModel):
+            if item.type in [MenuItemType.TOGGLE, MenuItemType.CHANGEABLE]:
+                var_name = getattr(item, 'variable_name', item.name)
+                if item.type == MenuItemType.TOGGLE:
+                    variables_with_types[var_name] = (item.state, DataType.UINT8)  # Toggle 使用 bool，但在C中用 uint8_t
+                elif item.type == MenuItemType.CHANGEABLE:
+                    if item.data_type in [DataType.FLOAT, DataType.DOUBLE]:
+                        variables_with_types[var_name] = (0.0, item.data_type)
+                    else:
+                        variables_with_types[var_name] = (0, item.data_type)
+            
+            for child in item.children:
+                collect_from_item(child)
+        
+        if self.config.root_item:
+            collect_from_item(self.config.root_item)
+            
+        return variables_with_types
+
     def _generate_variables(self) -> str:
         """生成变量声明代码"""
-        variables = self._collect_variables_from_items()
+        # 收集带类型信息的变量
+        variables_with_types = self._collect_variables_with_types_from_items()
         
-        all_variables = {**self.config.variables, **variables}
+        # 处理配置中的普通变量（没有类型信息，使用原来的推断逻辑）
+        config_variables = {}
+        for var_name, var_value in self.config.variables.items():
+            if isinstance(var_value, bool):
+                config_variables[var_name] = (var_value, DataType.UINT8)  # bool 在C中用 uint8_t
+            elif isinstance(var_value, float):
+                config_variables[var_name] = (var_value, DataType.FLOAT)
+            elif isinstance(var_value, int):
+                # 对于配置变量，保持原来的推断逻辑
+                if -128 <= var_value <= 127:
+                    config_variables[var_name] = (var_value, DataType.INT8)
+                elif -32768 <= var_value <= 32767:
+                    config_variables[var_name] = (var_value, DataType.INT16)
+                else:
+                    config_variables[var_name] = (var_value, DataType.INT32)
         
-        if not all_variables:
+        # 合并所有变量
+        all_variables_with_types = {**config_variables, **variables_with_types}
+        
+        if not all_variables_with_types:
             return "// 无变量定义"
         
         lines = ["typedef struct {"]
-        for var_name, var_value in all_variables.items():
-            if isinstance(var_value, bool):
-                lines.append(f"    bool {var_name};")
-            elif isinstance(var_value, float):
-                lines.append(f"    float {var_name};")
-            elif isinstance(var_value, int):
-                if -128 <= var_value <= 127:
-                    lines.append(f"    int8_t {var_name};")
-                elif -32768 <= var_value <= 32767:
-                    lines.append(f"    int16_t {var_name};")
-                else:
-                    lines.append(f"    int32_t {var_name};")
+        for var_name, (var_value, data_type) in all_variables_with_types.items():
+            c_type = self._get_c_type(data_type)
+            lines.append(f"    {c_type} {var_name};")
         lines.append("} menu_variables_t;")
         lines.append("")
         
         lines.append("static menu_variables_t g_menu_vars = {")
-        for var_name, var_value in all_variables.items():
+        for var_name, (var_value, data_type) in all_variables_with_types.items():
             if isinstance(var_value, bool):
                 lines.append(f"    .{var_name} = {'true' if var_value else 'false'},")
             elif isinstance(var_value, (int, float)):
-                if isinstance(var_value, float):
+                if data_type in [DataType.FLOAT, DataType.DOUBLE]:
                     lines.append(f"    .{var_name} = {var_value}f,")
                 else:
                     lines.append(f"    .{var_name} = {var_value},")

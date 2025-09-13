@@ -101,7 +101,7 @@ class PropertyPanel(QWidget):
                 index = self.data_type_combo.findData(self.current_item.data_type)
                 if index >= 0:
                     self.data_type_combo.setCurrentIndex(index)
-            self.data_type_combo.currentIndexChanged.connect(self.schedule_auto_save)
+            self.data_type_combo.currentIndexChanged.connect(self.on_data_type_changed)
             self.form_layout.addRow('数据类型:', self.data_type_combo)
             
             self.min_val_edit = QLineEdit(str(self.current_item.min_val or 0))
@@ -172,6 +172,42 @@ class PropertyPanel(QWidget):
         """回调类型更改时的处理"""
         pass
 
+    def on_data_type_changed(self, index):
+        """数据类型更改时的处理"""
+        if not self.current_item or self.current_item.type != MenuItemType.CHANGEABLE:
+            return
+        
+        # 获取新的数据类型
+        new_data_type = self.data_type_combo.currentData()
+        if new_data_type:
+            self.current_item.set_data_type(new_data_type)
+            
+            # 更新界面显示
+            self.update_changeable_values_display()
+            
+            # 显示数据类型范围提示
+            self.show_data_type_range_info(new_data_type)
+        
+        # 触发自动保存
+        self.schedule_auto_save()
+
+    def show_data_type_range_info(self, data_type: DataType):
+        """显示数据类型范围信息"""
+        min_val, max_val = DataType.get_range(data_type)
+        
+        # 更新最小值和最大值输入框的提示文本
+        if hasattr(self, 'min_val_edit') and self.min_val_edit:
+            if DataType.is_integer_type(data_type):
+                self.min_val_edit.setPlaceholderText(f"范围: {int(min_val)} ~ {int(max_val)}")
+            else:
+                self.min_val_edit.setPlaceholderText(f"范围: {min_val:.2e} ~ {max_val:.2e}")
+        
+        if hasattr(self, 'max_val_edit') and self.max_val_edit:
+            if DataType.is_integer_type(data_type):
+                self.max_val_edit.setPlaceholderText(f"范围: {int(min_val)} ~ {int(max_val)}")
+            else:
+                self.max_val_edit.setPlaceholderText(f"范围: {min_val:.2e} ~ {max_val:.2e}")
+
     def on_variables_changed(self):
         """变量定义更改时的处理"""
         self.schedule_auto_save()
@@ -179,6 +215,35 @@ class PropertyPanel(QWidget):
     def on_callbacks_changed(self):
         """回调函数更改时的处理"""
         self.schedule_auto_save()
+
+    def update_changeable_values_display(self):
+        """更新可变菜单项的数值显示"""
+        if not self.current_item or self.current_item.type != MenuItemType.CHANGEABLE:
+            return
+        
+        # 更新最小值显示
+        if hasattr(self, 'min_val_edit') and self.min_val_edit and \
+           self.min_val_edit.isVisible() and self.current_item.min_val is not None:
+            try:
+                self.min_val_edit.setText(str(self.current_item.min_val))
+            except RuntimeError:
+                pass
+        
+        # 更新最大值显示
+        if hasattr(self, 'max_val_edit') and self.max_val_edit and \
+           self.max_val_edit.isVisible() and self.current_item.max_val is not None:
+            try:
+                self.max_val_edit.setText(str(self.current_item.max_val))
+            except RuntimeError:
+                pass
+        
+        # 更新步长值显示
+        if hasattr(self, 'step_val_edit') and self.step_val_edit and \
+           self.step_val_edit.isVisible() and self.current_item.step_val is not None:
+            try:
+                self.step_val_edit.setText(str(self.current_item.step_val))
+            except RuntimeError:
+                pass
 
     def schedule_auto_save(self):
         """安排自动保存"""
@@ -202,30 +267,42 @@ class PropertyPanel(QWidget):
             pass
         
         if self.current_item.type == MenuItemType.CHANGEABLE:
+            # 保存数据类型
             if hasattr(self, 'data_type_combo') and self.data_type_combo and \
                self.data_type_combo.isVisible():
                 try:
-                    self.current_item.data_type = self.data_type_combo.currentData()
+                    self.current_item.set_data_type(self.data_type_combo.currentData())
                 except RuntimeError:
                     pass
+            
+            # 保存最小值
             if hasattr(self, 'min_val_edit') and self.min_val_edit and \
                self.min_val_edit.isVisible():
                 try:
-                    self.current_item.min_val = float(self.min_val_edit.text())
+                    self.current_item.set_min_val(float(self.min_val_edit.text()))
                 except (ValueError, RuntimeError):
-                    self.current_item.min_val = 0
+                    self.current_item.set_min_val(0)
+            
+            # 保存最大值
             if hasattr(self, 'max_val_edit') and self.max_val_edit and \
                self.max_val_edit.isVisible():
                 try:
-                    self.current_item.max_val = float(self.max_val_edit.text())
+                    self.current_item.set_max_val(float(self.max_val_edit.text()))
                 except (ValueError, RuntimeError):
-                    self.current_item.max_val = 100
+                    self.current_item.set_max_val(100)
+            
+            # 保存步长值
             if hasattr(self, 'step_val_edit') and self.step_val_edit and \
                self.step_val_edit.isVisible():
                 try:
-                    self.current_item.step_val = float(self.step_val_edit.text())
+                    self.current_item.set_step_val(float(self.step_val_edit.text()))
                 except (ValueError, RuntimeError):
-                    self.current_item.step_val = 1
+                    self.current_item.set_step_val(1)
+            
+            # 更新界面显示为限制后的值
+            self.update_changeable_values_display()
+            
+            # 保存回调设置
             if hasattr(self, 'enable_callback_checkbox') and self.enable_callback_checkbox and \
                self.enable_callback_checkbox.isVisible():
                 try:
