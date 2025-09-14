@@ -66,6 +66,7 @@ int main(void) {
     return 0;
 }
 ```
+6. 菜单构建文件为 `generated_code.c` 可以将在 `Easy_Menu_Builder` 生成的代码直接复制过去使用。
 
 ### 按键定义
 
