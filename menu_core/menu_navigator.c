@@ -56,8 +56,6 @@ static inline void fast_strncpy_pad(char* dest, const char* src, size_t len);
 static void increment_value_by_type(void* ref, void* step, data_type_t type);
 static void decrement_value_by_type(void* ref, void* step, void* min_val, data_type_t type);
 static bool is_value_in_range(void* ref, void* min_val, void* max_val, data_type_t type, bool is_increment);
-static bool will_increment_exceed_max(void* ref, void* step, void* max_val, data_type_t type);
-static bool will_decrement_exceed_min(void* ref, void* step, void* min_val, data_type_t type);
 static void format_value_by_type(void* ref, data_type_t type, char* str, size_t size);
 static void copy_value_by_type(void* dest, void* src, data_type_t type);
 
@@ -390,15 +388,12 @@ void menu_item_increment(menu_item_t* item) {
     
     changeable_data_t* data = &item->data.changeable;
     
-    // 先检查递增后是否会超出最大值
-    if (will_increment_exceed_max(data->ref, data->step_val, data->max_val, data->data_type)) {
-        return; // 如果会超出最大值，则不执行变化
-    }
-    
-    increment_value_by_type(data->ref, data->step_val, data->data_type);
-    
-    if (data->on_change) {
-        data->on_change(data->ref);
+    if (is_value_in_range(data->ref, data->min_val, data->max_val, data->data_type, true)) {
+        increment_value_by_type(data->ref, data->step_val, data->data_type);
+        
+        if (data->on_change) {
+            data->on_change(data->ref);
+        }
     }
 }
 
@@ -410,15 +405,12 @@ void menu_item_decrement(menu_item_t* item) {
     
     changeable_data_t* data = &item->data.changeable;
     
-    // 先检查递减后是否会低于最小值
-    if (will_decrement_exceed_min(data->ref, data->step_val, data->min_val, data->data_type)) {
-        return; // 如果会低于最小值，则不执行变化
-    }
-    
-    decrement_value_by_type(data->ref, data->step_val, data->min_val, data->data_type);
-    
-    if (data->on_change) {
-        data->on_change(data->ref);
+    if (is_value_in_range(data->ref, data->min_val, data->max_val, data->data_type, false)) {
+        decrement_value_by_type(data->ref, data->step_val, data->min_val, data->data_type);
+        
+        if (data->on_change) {
+            data->on_change(data->ref);
+        }
     }
 }
 
@@ -1309,63 +1301,5 @@ static void update_visible_range(navigator_t* nav) {
             nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
         }
     }
-}
-
-/**
- * @brief 检查递增后是否会超出最大值
- */
-static bool will_increment_exceed_max(void* ref, void* step, void* max_val, data_type_t type) {
-    switch (type) {
-        case DATA_TYPE_UINT8:
-            return (*(uint8_t*)ref + *(uint8_t*)step > *(uint8_t*)max_val);
-        case DATA_TYPE_UINT16:
-            return (*(uint16_t*)ref + *(uint16_t*)step > *(uint16_t*)max_val);
-        case DATA_TYPE_UINT32:
-            return (*(uint32_t*)ref + *(uint32_t*)step > *(uint32_t*)max_val);
-        case DATA_TYPE_UINT64:
-            return (*(uint64_t*)ref + *(uint64_t*)step > *(uint64_t*)max_val);
-        case DATA_TYPE_INT8:
-            return (*(int8_t*)ref + *(int8_t*)step > *(int8_t*)max_val);
-        case DATA_TYPE_INT16:
-            return (*(int16_t*)ref + *(int16_t*)step > *(int16_t*)max_val);
-        case DATA_TYPE_INT32:
-            return (*(int32_t*)ref + *(int32_t*)step > *(int32_t*)max_val);
-        case DATA_TYPE_INT64:
-            return (*(int64_t*)ref + *(int64_t*)step > *(int64_t*)max_val);
-        case DATA_TYPE_FLOAT:
-            return (*(float*)ref + *(float*)step > *(float*)max_val);
-        case DATA_TYPE_DOUBLE:
-            return (*(double*)ref + *(double*)step > *(double*)max_val);
-    }
-    return true; // 默认返回true，防止未知类型的操作
-}
-
-/**
- * @brief 检查递减后是否会低于最小值
- */
-static bool will_decrement_exceed_min(void* ref, void* step, void* min_val, data_type_t type) {
-    switch (type) {
-        case DATA_TYPE_UINT8:
-            return (*(uint8_t*)ref < *(uint8_t*)step || *(uint8_t*)ref - *(uint8_t*)step < *(uint8_t*)min_val);
-        case DATA_TYPE_UINT16:
-            return (*(uint16_t*)ref < *(uint16_t*)step || *(uint16_t*)ref - *(uint16_t*)step < *(uint16_t*)min_val);
-        case DATA_TYPE_UINT32:
-            return (*(uint32_t*)ref < *(uint32_t*)step || *(uint32_t*)ref - *(uint32_t*)step < *(uint32_t*)min_val);
-        case DATA_TYPE_UINT64:
-            return (*(uint64_t*)ref < *(uint64_t*)step || *(uint64_t*)ref - *(uint64_t*)step < *(uint64_t*)min_val);
-        case DATA_TYPE_INT8:
-            return (*(int8_t*)ref - *(int8_t*)step < *(int8_t*)min_val);
-        case DATA_TYPE_INT16:
-            return (*(int16_t*)ref - *(int16_t*)step < *(int16_t*)min_val);
-        case DATA_TYPE_INT32:
-            return (*(int32_t*)ref - *(int32_t*)step < *(int32_t*)min_val);
-        case DATA_TYPE_INT64:
-            return (*(int64_t*)ref - *(int64_t*)step < *(int64_t*)min_val);
-        case DATA_TYPE_FLOAT:
-            return (*(float*)ref - *(float*)step < *(float*)min_val);
-        case DATA_TYPE_DOUBLE:
-            return (*(double*)ref - *(double*)step < *(double*)min_val);
-    }
-    return true; // 默认返回true，防止未知类型的操作
 }
 

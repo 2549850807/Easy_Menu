@@ -179,12 +179,40 @@ void menu_goto(void* navigator, const char* menu_name)
 
     menu_item_t* target_item = find_item_by_name(root_item, menu_name);
 
-    if (target_item && target_item->type == MENU_TYPE_NORMAL && target_item->children_count > 0) {
-        nav->current_menu = target_item;
-        nav->selected_index = 0;
-        nav->first_visible_item = 0;
-
-        navigator_force_refresh_display(nav);
+    if (target_item) {
+        if (target_item->type == MENU_TYPE_NORMAL && target_item->children_count > 0) {
+            nav->current_menu = target_item;
+            nav->selected_index = 0;
+            nav->first_visible_item = 0;
+            navigator_force_refresh_display(nav);
+        } else if (target_item->type == MENU_TYPE_EXHIBITION) {
+            if (target_item->parent_item) {
+                nav->current_menu = target_item->parent_item;
+                
+                for (uint8_t i = 0; i < target_item->parent_item->children_count; i++) {
+                    if (target_item->parent_item->children_items[i] == target_item) {
+                        nav->selected_index = i;
+                        break;
+                    }
+                }
+                
+                if (nav->selected_index < nav->first_visible_item) {
+                    nav->first_visible_item = nav->selected_index;
+                } else if (nav->selected_index >= nav->first_visible_item + MAX_DISPLAY_ITEM) {
+                    nav->first_visible_item = nav->selected_index - MAX_DISPLAY_ITEM + 1;
+                }
+                
+                navigator_force_refresh_display(nav);
+                menu_handle_input(nav, RIGHT);
+            }
+        } else {
+            char* buffer = navigator_get_display_buffer(nav);
+            if (buffer) {
+                memset(buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+                snprintf(buffer, MAX_DISPLAY_CHAR, "Cannot goto %s", menu_name);
+            }
+            navigator_set_app_mode(nav, true);
+        }
     } else {
         char* buffer = navigator_get_display_buffer(nav);
         if (buffer) {
