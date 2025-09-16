@@ -3,6 +3,7 @@
 # 项目说明
 
 * 本项目包含了两个部分，菜单的底层框架以及配套的可视化配置器
+* 视频教程：https://www.bilibili.com/video/BV1EFpmzMEN8
 
 ## 快速开始
 
