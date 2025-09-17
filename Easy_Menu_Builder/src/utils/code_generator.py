@@ -338,9 +338,9 @@ class CodeGenerator:
             data_type = self._map_data_type(item.data_type)
             callback_name = f"{self._capitalize_name(var_name)}_Change_Callback"
             
-            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_min_val = {item.min_val or 0.0}f;")
-            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_max_val = {item.max_val or 100.0}f;")
-            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_step_val = {item.step_val or 1.0}f;")
+            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_min_val = {item.min_val if item.min_val is not None else 0.0}f;")
+            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_max_val = {item.max_val if item.max_val is not None else 100.0}f;")
+            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_step_val = {item.step_val if item.step_val is not None else 1.0}f;")
             
             if item.enable_callback:
                 lines.append(f"    return menu_create_changeable_item(\"{item.name}\", {var_ref}, &{var_name}_min_val, &{var_name}_max_val, &{var_name}_step_val, {data_type}, {callback_name});")

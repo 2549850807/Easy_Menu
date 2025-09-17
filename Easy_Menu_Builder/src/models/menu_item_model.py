@@ -67,9 +67,10 @@ class MenuItemModel:
         
         if item_type == MenuItemType.CHANGEABLE:
             self.data_ref: Any = None
-            self.min_val: Any = None
-            self.max_val: Any = None
-            self.step_val: Any = None
+            self.min_val: Any = 0.0  # 默认最小值为0.0
+            self.max_val: Any = 100.0  # 默认最大值为100.0
+            self.step_val: Any = 1.0  # 默认步长为1.0，确保float类型
+            self.current_val: Any = 0.0  # 默认初始值为最小值0.0
             self.data_type: DataType = DataType.FLOAT
             self.enable_callback: bool = False
             self.variable_name: str = name.lower()
@@ -147,12 +148,41 @@ class MenuItemModel:
         if self.type == MenuItemType.CHANGEABLE:
             self.min_val = min_val
             self.validate_and_clamp_values()
+            
+            # 根据新的逻辑设置初始值
+            self._update_current_val_based_on_range()
 
     def set_max_val(self, max_val: float):
         """设置最大值并验证范围"""
         if self.type == MenuItemType.CHANGEABLE:
             self.max_val = max_val
             self.validate_and_clamp_values()
+            
+            # 根据新的逻辑设置初始值
+            self._update_current_val_based_on_range()
+
+    def _update_current_val_based_on_range(self):
+        """根据最小值和最大值的范围更新当前值"""
+        if self.type != MenuItemType.CHANGEABLE:
+            return
+            
+        # 如果当前值未设置，需要设置初始值
+        if not hasattr(self, 'current_val') or self.current_val is None:
+            if hasattr(self, 'min_val') and self.min_val is not None and self.min_val > 0:
+                # 当最小值大于0时，初始值等于最小值
+                self.current_val = float(self.min_val)
+            elif hasattr(self, 'max_val') and self.max_val is not None and self.max_val < 0:
+                # 当最大值小于0时，初始值等于最大值
+                self.current_val = float(self.max_val)
+            else:
+                # 其他情况，初始值为0
+                self.current_val = 0.0
+        else:
+            # 如果当前值已设置，确保在有效范围内
+            if hasattr(self, 'min_val') and self.min_val is not None and self.current_val < self.min_val:
+                self.current_val = self.min_val
+            if hasattr(self, 'max_val') and self.max_val is not None and self.current_val > self.max_val:
+                self.current_val = self.max_val
 
     def set_step_val(self, step_val: float):
         """设置步长值并验证范围"""
@@ -178,6 +208,7 @@ class MenuItemModel:
                 "min_val": self.min_val,
                 "max_val": self.max_val,
                 "step_val": self.step_val,
+                "current_val": getattr(self, 'current_val', 0),
                 "enable_callback": self.enable_callback
             })
         elif self.type == MenuItemType.TOGGLE:
@@ -210,10 +241,14 @@ class MenuItemModel:
         
         if item.type == MenuItemType.CHANGEABLE:
             item.data_type = DataType(data.get("data_type", "float"))
-            item.min_val = data.get("min_val")
-            item.max_val = data.get("max_val")
-            item.step_val = data.get("step_val")
+            item.min_val = data.get("min_val", 0.0)  # 默认最小值为0.0
+            item.max_val = data.get("max_val", 100.0)  # 默认最大值为100.0
+            item.step_val = data.get("step_val", 1.0)  # 默认步长为1.0
+            item.current_val = data.get("current_val", 0.0)  # 默认初始值为0.0
             item.enable_callback = data.get("enable_callback", False)
+            
+            # 根据范围更新初始值
+            item._update_current_val_based_on_range()
         elif item.type == MenuItemType.TOGGLE:
             item.state = data.get("state", False)
             item.enable_callback = data.get("enable_callback", False)

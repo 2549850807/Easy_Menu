@@ -387,11 +387,27 @@ class MainWindow(QMainWindow):
             code = self.menu_controller.generate_c_code()
             self.code_preview.setPlainText(code)
             
+            # 重置并更新仿真器配置
             try:
-                if hasattr(self, 'simulator'):
-                    self.simulator.set_menu_config(self.menu_controller.config)
+                if hasattr(self, 'simulator') and self.simulator:
+                    # 使用仿真器的set_menu_config方法来完全重置状态
+                    if self.menu_controller.config:
+                        self.simulator.set_menu_config(self.menu_controller.config)
+                    else:
+                        # 如果没有配置，确保清空仿真器状态
+                        self.simulator.current_menu = None
+                        self.simulator.selected_index = 0
+                        self.simulator.first_visible_item = 0
+                        self.simulator.in_app_mode = False
+                        self.simulator.display_buffer = [""] * self.simulator.MAX_DISPLAY_ITEM
+                        self.simulator.refresh_display()
+                    
+                    # 强制刷新显示
+                    self.simulator.refresh_display()
+                else:
+                    pass
             except Exception as e:
-                print(f"更新仿真器配置时出错: {e}")
+                pass
             
             self.tab_widget.setCurrentIndex(1)
             

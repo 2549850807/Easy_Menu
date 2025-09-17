@@ -104,15 +104,19 @@ class PropertyPanel(QWidget):
             self.data_type_combo.currentIndexChanged.connect(self.on_data_type_changed)
             self.form_layout.addRow('数据类型:', self.data_type_combo)
             
-            self.min_val_edit = QLineEdit(str(self.current_item.min_val or 0))
+            # 正确显示float类型的默认值
+            min_val_display = str(self.current_item.min_val) if self.current_item.min_val is not None else "0.0"
+            self.min_val_edit = QLineEdit(min_val_display)
             self.min_val_edit.textChanged.connect(self.schedule_auto_save)
             self.form_layout.addRow('最小值:', self.min_val_edit)
             
-            self.max_val_edit = QLineEdit(str(self.current_item.max_val or 100))
+            max_val_display = str(self.current_item.max_val) if self.current_item.max_val is not None else "100.0"
+            self.max_val_edit = QLineEdit(max_val_display)
             self.max_val_edit.textChanged.connect(self.schedule_auto_save)
             self.form_layout.addRow('最大值:', self.max_val_edit)
             
-            self.step_val_edit = QLineEdit(str(self.current_item.step_val or 1))
+            step_val_display = str(self.current_item.step_val) if self.current_item.step_val is not None else "1.0"
+            self.step_val_edit = QLineEdit(step_val_display)
             self.step_val_edit.textChanged.connect(self.schedule_auto_save)
             self.form_layout.addRow('步长:', self.step_val_edit)
             
@@ -281,7 +285,7 @@ class PropertyPanel(QWidget):
                 try:
                     self.current_item.set_min_val(float(self.min_val_edit.text()))
                 except (ValueError, RuntimeError):
-                    self.current_item.set_min_val(0)
+                    self.current_item.set_min_val(0.0)
             
             # 保存最大值
             if hasattr(self, 'max_val_edit') and self.max_val_edit and \
@@ -289,7 +293,7 @@ class PropertyPanel(QWidget):
                 try:
                     self.current_item.set_max_val(float(self.max_val_edit.text()))
                 except (ValueError, RuntimeError):
-                    self.current_item.set_max_val(100)
+                    self.current_item.set_max_val(100.0)
             
             # 保存步长值
             if hasattr(self, 'step_val_edit') and self.step_val_edit and \
@@ -297,7 +301,7 @@ class PropertyPanel(QWidget):
                 try:
                     self.current_item.set_step_val(float(self.step_val_edit.text()))
                 except (ValueError, RuntimeError):
-                    self.current_item.set_step_val(1)
+                    self.current_item.set_step_val(1.0)
             
             # 更新界面显示为限制后的值
             self.update_changeable_values_display()

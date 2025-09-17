@@ -225,38 +225,59 @@ class Simulator(QWidget):
             
     def set_menu_config(self, config):
         """设置菜单配置"""
-        self._initialize_menu_items(config.root_item)
-        
-        self.current_menu = config.root_item
+        # 完全重置仿真器状态
+        self.current_menu = None
         self.selected_index = 0
         self.first_visible_item = 0
         self.in_app_mode = False
+        
+        # 清空显示缓冲区
+        self.display_buffer = [""] * self.MAX_DISPLAY_ITEM
+        
+        # 初始化菜单项
+        if config and hasattr(config, 'root_item') and config.root_item:
+            self._initialize_menu_items(config.root_item)
+            self.current_menu = config.root_item
+        else:
+            pass
+        
+        # 刷新显示
         self.refresh_display()
         
     def _initialize_menu_items(self, item):
         """初始化菜单项属性"""
-        if not hasattr(item, 'is_locked'):
-            item.is_locked = True
-            
-        if not hasattr(item, 'current_page'):
-            item.current_page = 0
-            
-        if not hasattr(item, 'saved_selected_index'):
-            item.saved_selected_index = 0
-            
-        if not hasattr(item, 'saved_first_visible_item'):
-            item.saved_first_visible_item = 0
-            
-        if not hasattr(item, 'saved_first_visible_item_before_exhibition'):
-            item.saved_first_visible_item_before_exhibition = 0
+        # 重置所有菜单项的状态为初始值
+        item.is_locked = True
+        item.current_page = 0
+        item.saved_selected_index = 0
+        item.saved_first_visible_item = 0
+        item.saved_first_visible_item_before_exhibition = 0
             
         if item.type.name == "CHANGEABLE":
-            if not hasattr(item, 'current_val'):
-                item.current_val = getattr(item, 'min_val', 0)
+            # 根据新的逻辑设置初始值
+            if hasattr(item, 'min_val') and item.min_val is not None and item.min_val > 0:
+                # 当最小值大于0时，初始值等于最小值
+                item.current_val = float(item.min_val)
+            elif hasattr(item, 'max_val') and item.max_val is not None and item.max_val < 0:
+                # 当最大值小于0时，初始值等于最大值
+                item.current_val = float(item.max_val)
+            else:
+                # 其他情况，初始值为0
+                item.current_val = 0.0
+            
+            # 确保当前值在有效范围内
+            if hasattr(item, 'min_val') and item.min_val is not None:
+                if item.current_val < item.min_val:
+                    item.current_val = float(item.min_val)
+            if hasattr(item, 'max_val') and item.max_val is not None:
+                if item.current_val > item.max_val:
+                    item.current_val = float(item.max_val)
                 
         if item.type.name == "TOGGLE":
-            if not hasattr(item, 'state'):
-                item.state = False
+            item.state = False
+            
+        if item.type.name == "EXHIBITION":
+            item.current_page = 0
                 
         for child in item.children:
             self._initialize_menu_items(child)
@@ -392,23 +413,37 @@ class Simulator(QWidget):
     def _increment_value(self, item):
         """增加可变项的值"""
         if item.type.name == "CHANGEABLE":
-            if not hasattr(item, 'current_val'):
-                item.current_val = getattr(item, 'min_val', 0)
-            item.current_val += getattr(item, 'step_val', 1)
+            # 确保current_val不为None
+            if not hasattr(item, 'current_val') or item.current_val is None:
+                item.current_val = getattr(item, 'min_val', 0) or 0
+            
+            # 确保step_val不为None
+            step_val = getattr(item, 'step_val', 1)
+            if step_val is None:
+                step_val = 1
+            
+            item.current_val += step_val
             
             max_val = getattr(item, 'max_val', 100)
-            if item.current_val > max_val:
+            if max_val is not None and item.current_val > max_val:
                 item.current_val = max_val
                 
     def _decrement_value(self, item):
         """减少可变项的值"""
         if item.type.name == "CHANGEABLE":
-            if not hasattr(item, 'current_val'):
-                item.current_val = getattr(item, 'max_val', 100)
-            item.current_val -= getattr(item, 'step_val', 1)
+            # 确保current_val不为None
+            if not hasattr(item, 'current_val') or item.current_val is None:
+                item.current_val = getattr(item, 'max_val', 100) or 0
+            
+            # 确保step_val不为None
+            step_val = getattr(item, 'step_val', 1)
+            if step_val is None:
+                step_val = 1
+            
+            item.current_val -= step_val
             
             min_val = getattr(item, 'min_val', 0)
-            if item.current_val < min_val:
+            if min_val is not None and item.current_val < min_val:
                 item.current_val = min_val
                 
     def _toggle_state(self, item):
@@ -457,7 +492,19 @@ class Simulator(QWidget):
                     display_text = f"{self.MENU_HAS_SUBMENU_INDICATOR}{item.name}:"
         elif item.type.name in ["CHANGEABLE", "TOGGLE"]:
             if item.type.name == "CHANGEABLE":
-                value_str = str(getattr(item, 'current_val', "0.0"))
+                current_val = getattr(item, 'current_val', 0)
+                # 检查是否为浮点类型，如果是则格式化为2位小数
+                if hasattr(item, 'data_type') and hasattr(item.data_type, 'name'):
+                    if item.data_type.name in ["FLOAT", "DOUBLE"]:
+                        value_str = f"{current_val:.2f}"
+                    else:
+                        value_str = str(int(current_val)) if isinstance(current_val, (int, float)) else str(current_val)
+                else:
+                    # 如果没有数据类型信息，根据值的类型判断
+                    if isinstance(current_val, float):
+                        value_str = f"{current_val:.2f}"
+                    else:
+                        value_str = str(current_val)
             else:
                 value_str = "ON" if getattr(item, 'state', False) else "OFF"
                 
