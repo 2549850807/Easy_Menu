@@ -1,6 +1,6 @@
 
 """
-Easy Menu Navigator - 菜单配置生成器
+Easy Menu - 菜单配置生成器
 基于PyQt6的可视化菜单配置工具，可生成嵌入式设备C语言菜单代码
 """
 
@@ -23,8 +23,8 @@ def main():
     """主函数"""
     try:
         app = QApplication(sys.argv)
-        app.setApplicationName("Easy Menu Navigator")
-        app.setApplicationVersion("1.0.0")
+        app.setApplicationName("Easy Menu")
+        app.setApplicationVersion("2.0.0")
         
         window = MainWindow()
         window.show()
