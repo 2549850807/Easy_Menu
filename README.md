@@ -24,12 +24,15 @@
 
 ```C
 #include "menu_wrapper.h"
+
 /**
- * @brief 在显示器上显示字符串
- * @param line 当前行（Y 轴）
- * @param str 需要显示的字符串
+ * @brief 显示字符串函数指针
+ * @param line 显示行号
+ * @param str 要显示的字符串
+ * @details 用户需要实现此函数来处理实际的显示输出
+ * @note 此函数需要用户在外部实现
  */
-void menu_show_string(unsigned char line, char* str)
+void menu_show_string(unsigned char line, char* str);
 {
   OLED_ShowStr(0, line, str, 8);
 }
