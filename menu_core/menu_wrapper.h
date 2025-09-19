@@ -9,7 +9,7 @@ extern "C" {
 
 /**
  * @brief 显示字符串函数指针
- * @param line 显示行号（0-3）
+ * @param line 显示行号
  * @param str 要显示的字符串
  * @details 用户需要实现此函数来处理实际的显示输出
  * @note 此函数需要用户在外部实现
