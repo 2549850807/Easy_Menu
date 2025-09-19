@@ -1,373 +1,284 @@
+/**
+ * @file menu_navigator.c
+ * @brief 菜单导航器核心实现文件
+ * @details 实现菜单系统的核心导航逻辑、显示管理和按键处理功能
+ * @author CodeBuddy
+ * @version 1.0
+ */
+
 #include "menu_navigator.h"
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-static memory_pool_t g_memory_pool = {0};
-static bool g_pool_initialized = false;
-static uint64_t g_pool_bitmap = 0;
-static size_t g_last_free_hint = 0;
-
-static inline size_t count_trailing_zeros(uint64_t value) {
-    if (value == 0) return 64;
-    
-    size_t count = 0;
-    
-    if ((value & 0xFFFFFFFFULL) == 0) {
-        count += 32;
-        value >>= 32;
-    }
-    
-    if ((value & 0xFFFFULL) == 0) {
-        count += 16;
-        value >>= 16;
-    }
-    
-    if ((value & 0xFFULL) == 0) {
-        count += 8;
-        value >>= 8;
-    }
-    
-    if ((value & 0xFULL) == 0) {
-        count += 4;
-        value >>= 4;
-    }
-    
-    if ((value & 0x3ULL) == 0) {
-        count += 2;
-        value >>= 2;
-    }
-    
-    if ((value & 0x1ULL) == 0) {
-        count += 1;
-    }
-    
-    return count;
-}
-
-static uint32_t fast_hash(const char* str, size_t len);
-static void fast_string_build(char* dest, size_t dest_size, const char* prefix, const char* main_str, const char* suffix);
-static bool string_content_changed(const char* old_str, const char* new_str, size_t len);
-static inline void fast_memset_char(char* dest, char c, size_t len);
-static inline size_t fast_strlen_bounded(const char* str, size_t max_len);
-static inline void fast_strncpy_pad(char* dest, const char* src, size_t len);
-
-// 数据类型操作辅助函数
-static void increment_value_by_type(void* ref, void* step, data_type_t type);
-static void decrement_value_by_type(void* ref, void* step, void* min_val, data_type_t type);
-static bool is_value_in_range(void* ref, void* min_val, void* max_val, data_type_t type, bool is_increment);
-static void format_value_by_type(void* ref, data_type_t type, char* str, size_t size);
-static void copy_value_by_type(void* dest, void* src, data_type_t type);
-
-// 按键处理优化辅助函数
-static void handle_navigation_up(navigator_t* nav);
-static void handle_navigation_down(navigator_t* nav);
-static void handle_item_operation_up(navigator_t* nav, menu_item_t* current_item);
-static void handle_item_operation_down(navigator_t* nav, menu_item_t* current_item);
-static void update_visible_range(navigator_t* nav);
+/** @brief 静态导航器实例，避免动态内存分配 */
+static navigator_t g_static_navigator = {0};
 
 /**
- * @brief 内存池初始化
+ * @defgroup UtilityFunctions 工具函数
+ * @brief 内部使用的优化工具函数
+ * @{
  */
-void memory_pool_init(void) {
-    if (g_pool_initialized) return;
-    
-    memset(&g_memory_pool, 0, sizeof(memory_pool_t));
-    g_memory_pool.next_free = 0;
-    g_pool_initialized = true;
-}
 
 /**
- * @brief 从内存池分配菜单项
- */
-menu_item_t* memory_pool_alloc(void) {
-    if (!g_pool_initialized) {
-        memory_pool_init();
-    }
-    
-    if (g_pool_bitmap == UINT64_MAX) {
-        return NULL;
-    }
-    
-    size_t free_index = count_trailing_zeros(~g_pool_bitmap);
-    if (free_index >= MENU_POOL_SIZE) {
-        return NULL;
-    }
-    
-    g_pool_bitmap |= (1ULL << free_index);
-    g_memory_pool.used[free_index] = true;
-    
-    memset(&g_memory_pool.pool[free_index], 0, sizeof(menu_item_t));
-    return &g_memory_pool.pool[free_index];
-}
-
-/**
- * @brief 释放菜单项到内存池
- */
-void memory_pool_free(menu_item_t* item) {
-    if (!item || !g_pool_initialized) return;
-    
-    if (item >= g_memory_pool.pool && item < g_memory_pool.pool + MENU_POOL_SIZE) {
-        size_t index = item - g_memory_pool.pool;
-        g_memory_pool.used[index] = false;
-        g_pool_bitmap &= ~(1ULL << index);
-        g_last_free_hint = index;
-    }
-}
-
-/**
- * @brief 获取内存池使用率
- */
-size_t memory_pool_get_usage(void) {
-    if (!g_pool_initialized) return 0;
-    
-    size_t used_count = 0;
-    for (size_t i = 0; i < MENU_POOL_SIZE; i++) {
-        if (g_memory_pool.used[i]) {
-            used_count++;
-        }
-    }
-    return used_count;
-}
-
-/**
- * @brief 快速内存设置
+ * @brief 快速字符填充函数
+ * @param dest 目标缓冲区
+ * @param c 要填充的字符
+ * @param len 填充长度
+ * @details 使用指针递增方式快速填充字符，比标准memset更高效
  */
 static inline void fast_memset_char(char* dest, char c, size_t len) {
-    if (len <= 16) {
-        for (size_t i = 0; i < len; i++) {
-            dest[i] = c;
-        }
-    } else {
-        memset(dest, c, len);
+    char* end = dest + len;
+    while (dest < end) {
+        *dest++ = c;
     }
 }
 
 /**
- * @brief 有界字符串长度计算
+ * @brief 快速字符串复制函数
+ * @param dest 目标缓冲区
+ * @param src 源字符串
+ * @param max_len 最大复制长度
+ * @return 实际复制的字符数
+ * @details 边复制边计算长度，避免重复遍历
  */
-static inline size_t fast_strlen_bounded(const char* str, size_t max_len) {
-    if (!str) return 0;
+static inline size_t fast_copy_string(char* dest, const char* src, size_t max_len) {
+    if (!dest || !src || max_len == 0) return 0;
     
-    size_t len = 0;
-    while (len < max_len && str[len] != '\0') {
-        len++;
+    size_t i = 0;
+    while (i < max_len && src[i] != '\0') {
+        dest[i] = src[i];
+        i++;
     }
-    return len;
+    return i;
 }
 
 /**
- * @brief 快速字符串复制并填充
+ * @brief 快速字符串复制并填充空格
+ * @param dest 目标缓冲区
+ * @param src 源字符串
+ * @param len 目标长度
+ * @details 复制字符串并用空格填充剩余位置，确保固定长度输出
  */
 static inline void fast_strncpy_pad(char* dest, const char* src, size_t len) {
     if (!dest || !src || len == 0) return;
     
-    size_t src_len = fast_strlen_bounded(src, len);
+    size_t copied = fast_copy_string(dest, src, len);
     
-    for (size_t i = 0; i < src_len; i++) {
-        dest[i] = src[i];
-    }
-    
-    if (src_len < len) {
-        fast_memset_char(dest + src_len, ' ', len - src_len);
+    if (copied < len) {
+        fast_memset_char(dest + copied, ' ', len - copied);
     }
 }
 
 /**
- * @brief 快速哈希函数
+ * @brief 快速哈希计算函数
+ * @param str 输入字符串
+ * @param len 最大计算长度
+ * @return 32位哈希值
+ * @details 使用djb2算法计算字符串哈希值，用于快速内容比较
  */
 static uint32_t fast_hash(const char* str, size_t len) {
     if (!str) return 0;
     
     uint32_t hash = 5381;
-    size_t actual_len = fast_strlen_bounded(str, len);
+    const char* end = str + len;
     
-    size_t i = 0;
-    for (; i + 3 < actual_len; i += 4) {
-        hash = ((hash << 5) + hash) + (uint8_t)str[i];
-        hash = ((hash << 5) + hash) + (uint8_t)str[i+1];
-        hash = ((hash << 5) + hash) + (uint8_t)str[i+2];
-        hash = ((hash << 5) + hash) + (uint8_t)str[i+3];
-    }
-    
-    for (; i < actual_len; i++) {
-        hash = ((hash << 5) + hash) + (uint8_t)str[i];
+    while (str < end && *str != '\0') {
+        hash = ((hash << 5) + hash) + (uint8_t)*str++;
     }
     
     return hash;
 }
 
 /**
- * @brief 快速字符串构建
+ * @brief 快速字符串构建函数
+ * @param dest 目标缓冲区
+ * @param dest_size 目标缓冲区大小
+ * @param prefix 前缀字符串
+ * @param main_str 主字符串
+ * @param suffix 后缀字符串
+ * @details 高效地将三个字符串拼接到目标缓冲区中
  */
 static void fast_string_build(char* dest, size_t dest_size, const char* prefix, const char* main_str, const char* suffix) {
     if (!dest || dest_size == 0) return;
     
-    size_t pos = 0;
-    size_t max_len = dest_size - 1;
+    char* pos = dest;
+    char* end = dest + dest_size - 1;
     
-    if (prefix && pos < max_len) {
-        size_t prefix_len = fast_strlen_bounded(prefix, max_len - pos);
-        for (size_t i = 0; i < prefix_len; i++) {
-            dest[pos++] = prefix[i];
+    if (prefix) {
+        while (pos < end && *prefix != '\0') {
+            *pos++ = *prefix++;
         }
     }
     
-    if (main_str && pos < max_len) {
-        size_t main_len = fast_strlen_bounded(main_str, max_len - pos);
-        for (size_t i = 0; i < main_len; i++) {
-            dest[pos++] = main_str[i];
+    if (main_str) {
+        while (pos < end && *main_str != '\0') {
+            *pos++ = *main_str++;
         }
     }
     
-    if (suffix && pos < max_len) {
-        size_t suffix_len = fast_strlen_bounded(suffix, max_len - pos);
-        for (size_t i = 0; i < suffix_len; i++) {
-            dest[pos++] = suffix[i];
+    if (suffix) {
+        while (pos < end && *suffix != '\0') {
+            *pos++ = *suffix++;
         }
     }
     
-    dest[pos] = '\0';
+    *pos = '\0';
 }
 
 /**
- * @brief 检查字符串内容是否变化
+ * @brief 检查字符串内容是否改变
+ * @param old_str 旧字符串
+ * @param new_str 新字符串
+ * @param len 比较长度
+ * @return 内容是否改变
+ * @details 用于优化显示更新，只有内容改变时才重新渲染
  */
 static bool string_content_changed(const char* old_str, const char* new_str, size_t len) {
     if (!old_str || !new_str) return true;
     return strncmp(old_str, new_str, len) != 0;
 }
 
+/** @} */
+
 /**
- * @brief 创建普通菜单项
+ * @defgroup DataTypeOperations 数据类型操作函数
+ * @brief 支持多种数据类型的通用操作函数
+ * @{
  */
-menu_item_t* menu_create_normal_item(const char* name, menu_item_t** children_items, uint8_t count) {
-    menu_item_t* item = memory_pool_alloc();
-    if (!item) return NULL;
-    
-    memset(item, 0, sizeof(menu_item_t));
-    item->is_locked = true;
-    item->item_name = name;
-    item->children_items = children_items;
-    item->children_count = count;
-    item->type = MENU_TYPE_NORMAL;
-    
-    // 设置父子关系
-    if (children_items) {
-        for (uint8_t i = 0; i < count; i++) {
-            if (children_items[i]) {
-                children_items[i]->parent_item = item;
-            }
-        }
+
+/**
+ * @brief 按数据类型递增值
+ * @param ref 变量指针
+ * @param step 步长指针
+ * @param type 数据类型
+ * @details 根据数据类型对变量进行递增操作
+ */
+static void increment_value_by_type(void* ref, void* step, data_type_t type) {
+    switch (type) {
+        case DATA_TYPE_UINT8: *(uint8_t*)ref += *(uint8_t*)step; break;
+        case DATA_TYPE_UINT16: *(uint16_t*)ref += *(uint16_t*)step; break;
+        case DATA_TYPE_UINT32: *(uint32_t*)ref += *(uint32_t*)step; break;
+        case DATA_TYPE_UINT64: *(uint64_t*)ref += *(uint64_t*)step; break;
+        case DATA_TYPE_INT8: *(int8_t*)ref += *(int8_t*)step; break;
+        case DATA_TYPE_INT16: *(int16_t*)ref += *(int16_t*)step; break;
+        case DATA_TYPE_INT32: *(int32_t*)ref += *(int32_t*)step; break;
+        case DATA_TYPE_INT64: *(int64_t*)ref += *(int64_t*)step; break;
+        case DATA_TYPE_FLOAT: *(float*)ref += *(float*)step; break;
+        case DATA_TYPE_DOUBLE: *(double*)ref += *(double*)step; break;
     }
-    
-    return item;
 }
 
 /**
- * @brief 创建可变菜单项
+ * @brief 按数据类型递减值
+ * @param ref 变量指针
+ * @param step 步长指针
+ * @param min_val 最小值指针（未使用，保留用于边界检查）
+ * @param type 数据类型
+ * @details 根据数据类型对变量进行递减操作
  */
-menu_item_t* menu_create_changeable_item(const char* name, void* ref, void* min_val, void* max_val, 
-                                         void* step_val, data_type_t data_type, void (*on_change)(void*)) {
-    menu_item_t* item = memory_pool_alloc();
-    if (!item) return NULL;
-    
-    memset(item, 0, sizeof(menu_item_t));
-    item->is_locked = true;
-    item->item_name = name;
-    item->type = MENU_TYPE_CHANGEABLE;
-    
-    item->data.changeable.ref = ref;
-    item->data.changeable.min_val = min_val;
-    item->data.changeable.max_val = max_val;
-    item->data.changeable.step_val = step_val;
-    item->data.changeable.data_type = data_type;
-    item->data.changeable.on_change = on_change;
-    
-    return item;
+static void decrement_value_by_type(void* ref, void* step, void* min_val, data_type_t type) {
+    switch (type) {
+        case DATA_TYPE_UINT8: *(uint8_t*)ref -= *(uint8_t*)step; break;
+        case DATA_TYPE_UINT16: *(uint16_t*)ref -= *(uint16_t*)step; break;
+        case DATA_TYPE_UINT32: *(uint32_t*)ref -= *(uint32_t*)step; break;
+        case DATA_TYPE_UINT64: *(uint64_t*)ref -= *(uint64_t*)step; break;
+        case DATA_TYPE_INT8: *(int8_t*)ref -= *(int8_t*)step; break;
+        case DATA_TYPE_INT16: *(int16_t*)ref -= *(int16_t*)step; break;
+        case DATA_TYPE_INT32: *(int32_t*)ref -= *(int32_t*)step; break;
+        case DATA_TYPE_INT64: *(int64_t*)ref -= *(int64_t*)step; break;
+        case DATA_TYPE_FLOAT: *(float*)ref -= *(float*)step; break;
+        case DATA_TYPE_DOUBLE: *(double*)ref -= *(double*)step; break;
+    }
 }
 
 /**
- * @brief 创建切换菜单项
+ * @brief 检查是否可以递增值
+ * @param ref 变量指针
+ * @param step 步长指针
+ * @param max_val 最大值指针
+ * @param type 数据类型
+ * @return 是否可以递增
+ * @details 检查递增后是否会超过最大值限制
  */
-menu_item_t* menu_create_toggle_item(const char* name, bool* ref, void (*on_toggle)(bool)) {
-    menu_item_t* item = memory_pool_alloc();
-    if (!item) return NULL;
-    
-    memset(item, 0, sizeof(menu_item_t));
-    item->is_locked = true;
-    item->item_name = name;
-    item->type = MENU_TYPE_TOGGLE;
-    
-    item->data.toggle.ref = ref;
-    item->data.toggle.state = ref ? *ref : false;
-    item->data.toggle.on_toggle = on_toggle;
-    
-    return item;
+static bool can_increment_value(void* ref, void* step, void* max_val, data_type_t type) {
+    switch (type) {
+        case DATA_TYPE_UINT8: return (*(uint8_t*)ref + *(uint8_t*)step <= *(uint8_t*)max_val);
+        case DATA_TYPE_UINT16: return (*(uint16_t*)ref + *(uint16_t*)step <= *(uint16_t*)max_val);
+        case DATA_TYPE_UINT32: return (*(uint32_t*)ref + *(uint32_t*)step <= *(uint32_t*)max_val);
+        case DATA_TYPE_UINT64: return (*(uint64_t*)ref + *(uint64_t*)step <= *(uint64_t*)max_val);
+        case DATA_TYPE_INT8: return (*(int8_t*)ref + *(int8_t*)step <= *(int8_t*)max_val);
+        case DATA_TYPE_INT16: return (*(int16_t*)ref + *(int16_t*)step <= *(int16_t*)max_val);
+        case DATA_TYPE_INT32: return (*(int32_t*)ref + *(int32_t*)step <= *(int32_t*)max_val);
+        case DATA_TYPE_INT64: return (*(int64_t*)ref + *(int64_t*)step <= *(int64_t*)max_val);
+        case DATA_TYPE_FLOAT: return (*(float*)ref + *(float*)step <= *(float*)max_val);
+        case DATA_TYPE_DOUBLE: return (*(double*)ref + *(double*)step <= *(double*)max_val);
+    }
+    return false;
 }
 
 /**
- * @brief 创建应用菜单项
+ * @brief 检查是否可以递减值
+ * @param ref 变量指针
+ * @param step 步长指针
+ * @param min_val 最小值指针
+ * @param type 数据类型
+ * @return 是否可以递减
+ * @details 检查递减后是否会低于最小值限制
  */
-menu_item_t* menu_create_app_item(const char* name, void** app_args, void (*app_func)(void**)) {
-    menu_item_t* item = memory_pool_alloc();
-    if (!item) return NULL;
-    
-    memset(item, 0, sizeof(menu_item_t));
-    item->is_locked = true;
-    item->item_name = name;
-    item->type = MENU_TYPE_NORMAL;
-    item->app_func = app_func;
-    item->app_args = app_args;
-    
-    return item;
+static bool can_decrement_value(void* ref, void* step, void* min_val, data_type_t type) {
+    switch (type) {
+        case DATA_TYPE_UINT8: return (*(uint8_t*)ref >= *(uint8_t*)step && *(uint8_t*)ref - *(uint8_t*)step >= *(uint8_t*)min_val);
+        case DATA_TYPE_UINT16: return (*(uint16_t*)ref >= *(uint16_t*)step && *(uint16_t*)ref - *(uint16_t*)step >= *(uint16_t*)min_val);
+        case DATA_TYPE_UINT32: return (*(uint32_t*)ref >= *(uint32_t*)step && *(uint32_t*)ref - *(uint32_t*)step >= *(uint32_t*)min_val);
+        case DATA_TYPE_UINT64: return (*(uint64_t*)ref >= *(uint64_t*)step && *(uint64_t*)ref - *(uint64_t*)step >= *(uint64_t*)min_val);
+        case DATA_TYPE_INT8: return (*(int8_t*)ref - *(int8_t*)step >= *(int8_t*)min_val);
+        case DATA_TYPE_INT16: return (*(int16_t*)ref - *(int16_t*)step >= *(int16_t*)min_val);
+        case DATA_TYPE_INT32: return (*(int32_t*)ref - *(int32_t*)step >= *(int32_t*)min_val);
+        case DATA_TYPE_INT64: return (*(int64_t*)ref - *(int64_t*)step >= *(int64_t*)min_val);
+        case DATA_TYPE_FLOAT: return (*(float*)ref - *(float*)step >= *(float*)min_val);
+        case DATA_TYPE_DOUBLE: return (*(double*)ref - *(double*)step >= *(double*)min_val);
+    }
+    return false;
 }
 
 /**
- * @brief 创建展示菜单项
- * @param name 菜单项名称
- * @param total_pages 总页数，当页数为1时采用Nav模式显示，当页数大于1时采用Page模式显示
- * @param callback 回调函数，参数为(navigator_t* nav, uint8_t current_page, uint8_t total_pages)
+ * @brief 按数据类型格式化值为字符串
+ * @param ref 变量指针
+ * @param type 数据类型
+ * @param str 输出字符串缓冲区
+ * @param size 缓冲区大小
+ * @details 将不同数据类型的值格式化为可显示的字符串
  */
-menu_item_t* menu_create_exhibition_item(const char* name, uint8_t total_pages, 
-                                        void (*callback)(navigator_t*, uint8_t, uint8_t)) {
-    menu_item_t* item = memory_pool_alloc();
-    if (!item) return NULL;
-    
-    memset(item, 0, sizeof(menu_item_t));
-    item->is_locked = true;
-    item->item_name = name;
-    item->type = MENU_TYPE_EXHIBITION;
-    item->periodic_callback_with_page = callback;
-    item->data.exhibition.total_pages = total_pages > 0 ? total_pages : 1;
-    item->data.exhibition.current_page = 0;
-    item->data.exhibition.lines_per_page = MAX_DISPLAY_ITEM - 1;
-    
-    return item;
+static void format_value_by_type(void* ref, data_type_t type, char* str, size_t size) {
+    switch (type) {
+        case DATA_TYPE_UINT8:
+        case DATA_TYPE_UINT16: snprintf(str, size, "%u", *(uint16_t*)ref); break;
+        case DATA_TYPE_UINT32: snprintf(str, size, "%lu", *(uint32_t*)ref); break;
+        case DATA_TYPE_UINT64: snprintf(str, size, "%llu", *(uint64_t*)ref); break;
+        case DATA_TYPE_INT8:
+        case DATA_TYPE_INT16: snprintf(str, size, "%d", *(int16_t*)ref); break;
+        case DATA_TYPE_INT32: snprintf(str, size, "%ld", *(int32_t*)ref); break;
+        case DATA_TYPE_INT64: snprintf(str, size, "%lld", *(int64_t*)ref); break;
+        case DATA_TYPE_FLOAT: snprintf(str, size, "%.3f", *(float*)ref); break;
+        case DATA_TYPE_DOUBLE: snprintf(str, size, "%.6f", *(double*)ref); break;
+        default: snprintf(str, size, "<?>");
+    }
 }
 
-/**
- * @brief 创建带导航器的展示菜单项（已废弃，为了兼容性保留）
- */
-menu_item_t* menu_create_exhibition_item_with_nav(const char* name, void (*callback)(navigator_t*)) {
-    // 为了兼容性，转换为新的统一接口
-    // Nav模式相当于total_pages=1的情况
-    return menu_create_exhibition_item(name, 1, (void (*)(navigator_t*, uint8_t, uint8_t))callback);
-}
+/** @} */
 
 /**
- * @brief 创建带分页的展示菜单项（已废弃，为了兼容性保留）
+ * @defgroup MenuItemOperations 菜单项操作函数
+ * @brief 针对不同类型菜单项的操作函数
+ * @{
  */
-menu_item_t* menu_create_exhibition_item_with_page(const char* name, uint8_t total_pages, 
-                                                   void (*callback)(navigator_t*, uint8_t, uint8_t)) {
-    // 直接使用新的统一接口
-    return menu_create_exhibition_item(name, total_pages, callback);
-}
 
 /**
- * @brief 菜单项切换操作
+ * @brief 切换开关菜单项状态
+ * @param item 菜单项指针
+ * @details 切换TOGGLE类型菜单项的开关状态，并调用回调函数
  */
-void menu_item_toggle(menu_item_t* item) {
+static void menu_item_toggle(menu_item_t* item) {
     if (!item || item->type != MENU_TYPE_TOGGLE) return;
     
     if (item->data.toggle.ref) {
@@ -381,14 +292,16 @@ void menu_item_toggle(menu_item_t* item) {
 }
 
 /**
- * @brief 菜单项递增操作
+ * @brief 递增可变菜单项的值
+ * @param item 菜单项指针
+ * @details 增加CHANGEABLE类型菜单项的值，检查边界并调用回调函数
  */
-void menu_item_increment(menu_item_t* item) {
+static void menu_item_increment(menu_item_t* item) {
     if (!item || item->type != MENU_TYPE_CHANGEABLE) return;
     
     changeable_data_t* data = &item->data.changeable;
     
-    if (is_value_in_range(data->ref, data->min_val, data->max_val, data->data_type, true)) {
+    if (can_increment_value(data->ref, data->step_val, data->max_val, data->data_type)) {
         increment_value_by_type(data->ref, data->step_val, data->data_type);
         
         if (data->on_change) {
@@ -398,14 +311,16 @@ void menu_item_increment(menu_item_t* item) {
 }
 
 /**
- * @brief 菜单项递减操作
+ * @brief 递减可变菜单项的值
+ * @param item 菜单项指针
+ * @details 减少CHANGEABLE类型菜单项的值，检查边界并调用回调函数
  */
-void menu_item_decrement(menu_item_t* item) {
+static void menu_item_decrement(menu_item_t* item) {
     if (!item || item->type != MENU_TYPE_CHANGEABLE) return;
     
     changeable_data_t* data = &item->data.changeable;
     
-    if (is_value_in_range(data->ref, data->min_val, data->max_val, data->data_type, false)) {
+    if (can_decrement_value(data->ref, data->step_val, data->min_val, data->data_type)) {
         decrement_value_by_type(data->ref, data->step_val, data->min_val, data->data_type);
         
         if (data->on_change) {
@@ -415,9 +330,13 @@ void menu_item_decrement(menu_item_t* item) {
 }
 
 /**
- * @brief 获取菜单项值字符串
+ * @brief 获取菜单项的值字符串
+ * @param item 菜单项指针
+ * @param value_str 输出字符串缓冲区
+ * @param size 缓冲区大小
+ * @details 将菜单项的当前值转换为显示字符串
  */
-void menu_item_get_value_str(const menu_item_t* item, char* value_str, size_t size) {
+static void menu_item_get_value_str(const menu_item_t* item, char* value_str, size_t size) {
     if (!item || !value_str) return;
     
     memset(value_str, 0, size);
@@ -441,46 +360,22 @@ void menu_item_get_value_str(const menu_item_t* item, char* value_str, size_t si
 }
 
 /**
- * @brief 设置展示项总页数
+ * @brief 展示菜单项下一页
+ * @param item 菜单项指针
+ * @details 切换EXHIBITION类型菜单项到下一页，支持循环翻页
  */
-void menu_item_set_total_pages(menu_item_t* item, uint8_t total_pages) {
-    if (!item || item->type != MENU_TYPE_EXHIBITION) return;
-    
-    item->data.exhibition.total_pages = total_pages > 0 ? total_pages : 1;
-    if (item->data.exhibition.current_page >= item->data.exhibition.total_pages) {
-        item->data.exhibition.current_page = item->data.exhibition.total_pages - 1;
-    }
-}
-
-/**
- * @brief 获取展示项当前页
- */
-uint8_t menu_item_get_current_page(const menu_item_t* item) {
-    if (!item || item->type != MENU_TYPE_EXHIBITION) return 0;
-    return item->data.exhibition.current_page;
-}
-
-/**
- * @brief 获取展示项总页数
- */
-uint8_t menu_item_get_total_pages(const menu_item_t* item) {
-    if (!item || item->type != MENU_TYPE_EXHIBITION) return 1;
-    return item->data.exhibition.total_pages;
-}
-
-/**
- * @brief 展示项下一页
- */
-void menu_item_next_page(menu_item_t* item) {
+static void menu_item_next_page(menu_item_t* item) {
     if (!item || item->type != MENU_TYPE_EXHIBITION || item->data.exhibition.total_pages <= 1) return;
     
     item->data.exhibition.current_page = (item->data.exhibition.current_page + 1) % item->data.exhibition.total_pages;
 }
 
 /**
- * @brief 展示项上一页
+ * @brief 展示菜单项上一页
+ * @param item 菜单项指针
+ * @details 切换EXHIBITION类型菜单项到上一页，支持循环翻页
  */
-void menu_item_prev_page(menu_item_t* item) {
+static void menu_item_prev_page(menu_item_t* item) {
     if (!item || item->type != MENU_TYPE_EXHIBITION || item->data.exhibition.total_pages <= 1) return;
     
     item->data.exhibition.current_page = (item->data.exhibition.current_page == 0) 
@@ -488,22 +383,24 @@ void menu_item_prev_page(menu_item_t* item) {
         : (item->data.exhibition.current_page - 1);
 }
 
+/** @} */
+
 /**
- * @brief 展示项重置到第一页
+ * @defgroup NavigatorCore 导航器核心功能实现
+ * @brief 导航器的创建、销毁和基本操作实现
+ * @{
  */
-void menu_item_reset_to_first_page(menu_item_t* item) {
-    if (!item || item->type != MENU_TYPE_EXHIBITION) return;
-    item->data.exhibition.current_page = 0;
-}
 
 /**
  * @brief 创建导航器
+ * @param main_item 主菜单项指针
+ * @return 导航器指针，失败返回NULL
+ * @details 初始化静态导航器实例并设置主菜单项，避免动态内存分配
  */
 navigator_t* navigator_create(menu_item_t* main_item) {
     if (!main_item) return NULL;
     
-    navigator_t* nav = (navigator_t*)malloc(sizeof(navigator_t));
-    if (!nav) return NULL;
+    navigator_t* nav = &g_static_navigator;
     
     memset(nav, 0, sizeof(navigator_t));
     nav->current_menu = main_item;
@@ -513,7 +410,6 @@ navigator_t* navigator_create(menu_item_t* main_item) {
     nav->app_saved_selected_index = 0;
     nav->saved_first_visible_item_before_exhibition = 0;
     
-    // 初始化显示行管理
     for (uint8_t i = 0; i < MAX_DISPLAY_ITEM; i++) {
         nav->display_lines[i].state = LINE_STATE_FORCE_UPDATE;
         nav->display_lines[i].hash = 0;
@@ -525,19 +421,32 @@ navigator_t* navigator_create(menu_item_t* main_item) {
 
 /**
  * @brief 销毁导航器
+ * @param nav 导航器指针
+ * @details 静态版本中为空操作，保持接口兼容性
  */
 void navigator_destroy(navigator_t* nav) {
-    if (nav) {
-        free(nav);
-    }
+    (void)nav;
 }
+
+/** @} */
+
+/**
+ * @defgroup NavigatorInput 导航器输入处理
+ * @brief 按键输入处理和菜单导航逻辑
+ * @{
+ */
 
 /**
  * @brief 处理按键输入
+ * @param nav 导航器指针
+ * @param key_value 按键值
+ * @details 根据按键值和当前菜单项类型执行相应的操作
+ * @note 支持四种按键：上下左右，每种按键在不同菜单项类型下有不同行为
  */
 void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items) return;
     
+    // 应用模式下只响应左键退出
     if (nav->in_app_mode) {
         if (key_value == KEY_LEFT) {
             nav->in_app_mode = false;
@@ -549,17 +458,104 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
     
     switch (key_value) {
         case KEY_UP:
-            handle_item_operation_up(nav, current_item);
+            switch (current_item->type) {
+                case MENU_TYPE_EXHIBITION:
+                    if (current_item->is_locked) {
+                        // 锁定状态：向上移动光标
+                        nav->selected_index = (nav->selected_index == 0) 
+                            ? (nav->current_menu->children_count - 1) 
+                            : (nav->selected_index - 1);
+                    } else {
+                        // 解锁状态：上一页
+                        menu_item_prev_page(current_item);
+                    }
+                    break;
+                case MENU_TYPE_CHANGEABLE:
+                    if (!current_item->is_locked) {
+                        // 解锁状态：增加值
+                        menu_item_increment(current_item);
+                    } else {
+                        // 锁定状态：向上移动光标
+                        nav->selected_index = (nav->selected_index == 0) 
+                            ? (nav->current_menu->children_count - 1) 
+                            : (nav->selected_index - 1);
+                    }
+                    break;
+                case MENU_TYPE_TOGGLE:
+                    if (!current_item->is_locked) {
+                        // 解锁状态：切换开关
+                        menu_item_toggle(current_item);
+                    } else {
+                        // 锁定状态：向上移动光标
+                        nav->selected_index = (nav->selected_index == 0) 
+                            ? (nav->current_menu->children_count - 1) 
+                            : (nav->selected_index - 1);
+                    }
+                    break;
+                default:
+                    // 普通菜单项：向上移动光标
+                    nav->selected_index = (nav->selected_index == 0) 
+                        ? (nav->current_menu->children_count - 1) 
+                        : (nav->selected_index - 1);
+                    break;
+            }
+            
+            // 整页翻页逻辑：确保新页面从第一行开始显示
+            if (nav->selected_index < nav->first_visible_item) {
+                nav->first_visible_item = (nav->selected_index / MAX_DISPLAY_ITEM) * MAX_DISPLAY_ITEM;
+            } else if (nav->selected_index >= nav->first_visible_item + MAX_DISPLAY_ITEM) {
+                nav->first_visible_item = (nav->selected_index / MAX_DISPLAY_ITEM) * MAX_DISPLAY_ITEM;
+            }
             break;
             
         case KEY_DOWN:
-            handle_item_operation_down(nav, current_item);
+            switch (current_item->type) {
+                case MENU_TYPE_EXHIBITION:
+                    if (current_item->is_locked) {
+                        // 锁定状态：向下移动光标
+                        nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
+                    } else {
+                        // 解锁状态：下一页
+                        menu_item_next_page(current_item);
+                    }
+                    break;
+                case MENU_TYPE_CHANGEABLE:
+                    if (!current_item->is_locked) {
+                        // 解锁状态：减少值
+                        menu_item_decrement(current_item);
+                    } else {
+                        // 锁定状态：向下移动光标
+                        nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
+                    }
+                    break;
+                case MENU_TYPE_TOGGLE:
+                    if (!current_item->is_locked) {
+                        // 解锁状态：切换开关
+                        menu_item_toggle(current_item);
+                    } else {
+                        // 锁定状态：向下移动光标
+                        nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
+                    }
+                    break;
+                default:
+                    // 普通菜单项：向下移动光标
+                    nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
+                    break;
+            }
+            
+            // 整页翻页逻辑
+            if (nav->selected_index < nav->first_visible_item) {
+                nav->first_visible_item = (nav->selected_index / MAX_DISPLAY_ITEM) * MAX_DISPLAY_ITEM;
+            } else if (nav->selected_index >= nav->first_visible_item + MAX_DISPLAY_ITEM) {
+                nav->first_visible_item = (nav->selected_index / MAX_DISPLAY_ITEM) * MAX_DISPLAY_ITEM;
+            }
             break;
             
         case KEY_RIGHT:
             switch (current_item->type) {
                 case MENU_TYPE_NORMAL:
                     if (current_item->children_count > 0) {
+                        // 进入子菜单
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
                         navigator_mark_all_lines_dirty(nav);
                         nav->current_menu->saved_selected_index = nav->selected_index;
@@ -568,6 +564,7 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                         nav->selected_index = 0;
                         nav->first_visible_item = 0;
                     } else if (current_item->app_func) {
+                        // 启动应用程序
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
                         navigator_mark_all_lines_dirty(nav);
                         nav->in_app_mode = true;
@@ -575,22 +572,20 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                         current_item->app_func(current_item->app_args);
                     }
                     break;
-                    
                 case MENU_TYPE_EXHIBITION:
                     if (current_item->is_locked) {
+                        // 进入展示模式
                         current_item->is_locked = false;
-                        menu_item_reset_to_first_page(current_item);
+                        current_item->data.exhibition.current_page = 0;
                         nav->saved_first_visible_item_before_exhibition = nav->first_visible_item;
                         nav->first_visible_item = nav->selected_index;
-                        if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-                            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-                            navigator_mark_all_lines_dirty(nav);
-                        }
+                        memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+                        navigator_mark_all_lines_dirty(nav);
                     }
                     break;
-                    
                 case MENU_TYPE_CHANGEABLE:
                 case MENU_TYPE_TOGGLE:
+                    // 解锁编辑模式
                     current_item->is_locked = false;
                     break;
             }
@@ -600,6 +595,7 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
             switch (current_item->type) {
                 case MENU_TYPE_NORMAL:
                     if (nav->current_menu->parent_item) {
+                        // 返回父菜单
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
                         navigator_mark_all_lines_dirty(nav);
                         nav->current_menu = nav->current_menu->parent_item;
@@ -607,14 +603,15 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                         nav->first_visible_item = nav->current_menu->saved_first_visible_item;
                     }
                     break;
-                    
                 case MENU_TYPE_EXHIBITION:
                     if (!current_item->is_locked) {
+                        // 退出展示模式
                         current_item->is_locked = true;
                         nav->first_visible_item = nav->saved_first_visible_item_before_exhibition;
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
                         navigator_mark_all_lines_dirty(nav);
                     } else if (nav->current_menu->parent_item) {
+                        // 返回父菜单
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
                         navigator_mark_all_lines_dirty(nav);
                         nav->current_menu = nav->current_menu->parent_item;
@@ -622,12 +619,13 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                         nav->first_visible_item = nav->current_menu->saved_first_visible_item;
                     }
                     break;
-                    
                 case MENU_TYPE_CHANGEABLE:
                 case MENU_TYPE_TOGGLE:
                     if (!current_item->is_locked) {
+                        // 锁定编辑模式
                         current_item->is_locked = true;
                     } else if (nav->current_menu->parent_item) {
+                        // 返回父菜单
                         memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
                         navigator_mark_all_lines_dirty(nav);
                         nav->current_menu = nav->current_menu->parent_item;
@@ -637,42 +635,56 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                     break;
             }
             break;
-            
         default:
             break;
     }
-    
-    update_visible_range(nav);
 }
 
+/** @} */
+
 /**
- * @brief 刷新显示
+ * @defgroup NavigatorDisplay 导航器显示管理实现
+ * @brief 显示内容生成和缓冲区管理
+ * @{
+ */
+
+/**
+ * @brief 刷新显示内容
+ * @param nav 导航器指针
+ * @details 根据当前菜单状态生成显示内容，支持普通菜单和展示模式
  */
 void navigator_refresh_display(navigator_t* nav) {
     if (!nav || !nav->current_menu) return;
     
     menu_item_t* selected_item = nav->current_menu->children_items[nav->selected_index];
+    
+    // 展示模式特殊处理
     if (selected_item->type == MENU_TYPE_EXHIBITION && !selected_item->is_locked) {
         uint8_t title_line = nav->selected_index - nav->first_visible_item;
         char title_buffer[MAX_DISPLAY_CHAR];
         
+        // 构建标题行
         if (selected_item->data.exhibition.total_pages > 1) {
             fast_string_build(title_buffer, MAX_DISPLAY_CHAR, MENU_HAS_SUBMENU_INDICATOR, selected_item->item_name, "");
             char page_info[16];
             snprintf(page_info, sizeof(page_info), "(%d/%d):", 
                     selected_item->data.exhibition.current_page + 1,
                     selected_item->data.exhibition.total_pages);
-            strncat(title_buffer, page_info, MAX_DISPLAY_CHAR - strlen(title_buffer) - 1);
+            size_t current_len = 0;
+            while (current_len < MAX_DISPLAY_CHAR && title_buffer[current_len] != '\0') current_len++;
+            fast_copy_string(title_buffer + current_len, page_info, MAX_DISPLAY_CHAR - current_len);
         } else {
             fast_string_build(title_buffer, MAX_DISPLAY_CHAR, MENU_HAS_SUBMENU_INDICATOR, selected_item->item_name, ":");
         }
         
         navigator_write_display_line(nav, title_buffer, title_line);
         
+        // 清空其他行
         for (uint8_t i = 1; i < MAX_DISPLAY_ITEM; i++) {
             navigator_write_display_line(nav, "", i);
         }
         
+        // 调用分页回调函数
         if (selected_item->periodic_callback_with_page) {
             selected_item->periodic_callback_with_page(nav, 
                 selected_item->data.exhibition.current_page,
@@ -684,11 +696,13 @@ void navigator_refresh_display(navigator_t* nav) {
     static char line_buffer[MAX_DISPLAY_CHAR];
     static char value_str[MAX_DISPLAY_CHAR];
     
+    // 普通菜单显示
     if (!nav->in_app_mode) {
         uint8_t visible_count = (nav->current_menu->children_count - nav->first_visible_item < MAX_DISPLAY_ITEM)
             ? (nav->current_menu->children_count - nav->first_visible_item)
             : MAX_DISPLAY_ITEM;
             
+        // 生成可见菜单项
         for (uint8_t i = 0; i < visible_count; i++) {
             menu_item_t* item = nav->current_menu->children_items[i + nav->first_visible_item];
             const char* indicator = (nav->selected_index - nav->first_visible_item == i) ? MENU_SELECT_CURSOR : "  ";
@@ -705,10 +719,14 @@ void navigator_refresh_display(navigator_t* nav) {
                     menu_item_get_value_str(item, value_str, MAX_DISPLAY_CHAR);
                     if (item->is_locked) {
                         fast_string_build(line_buffer, MAX_DISPLAY_CHAR, indicator, item->item_name, ": ");
-                        strncat(line_buffer, value_str, MAX_DISPLAY_CHAR - strlen(line_buffer) - 1);
+                        size_t current_len = 0;
+                        while (current_len < MAX_DISPLAY_CHAR && line_buffer[current_len] != '\0') current_len++;
+                        fast_copy_string(line_buffer + current_len, value_str, MAX_DISPLAY_CHAR - current_len);
                     } else {
                         fast_string_build(line_buffer, MAX_DISPLAY_CHAR, MENU_HAS_SUBMENU_INDICATOR, item->item_name, ": ");
-                        strncat(line_buffer, value_str, MAX_DISPLAY_CHAR - strlen(line_buffer) - 1);
+                        size_t current_len = 0;
+                        while (current_len < MAX_DISPLAY_CHAR && line_buffer[current_len] != '\0') current_len++;
+                        fast_copy_string(line_buffer + current_len, value_str, MAX_DISPLAY_CHAR - current_len);
                     }
                     break;
                     
@@ -724,6 +742,7 @@ void navigator_refresh_display(navigator_t* nav) {
             navigator_write_display_line(nav, line_buffer, i);
         }
         
+        // 清空剩余行
         for (uint8_t i = visible_count; i < MAX_DISPLAY_ITEM; i++) {
             navigator_write_display_line(nav, "", i);
         }
@@ -731,23 +750,67 @@ void navigator_refresh_display(navigator_t* nav) {
 }
 
 /**
- * @brief 设置应用模式
+ * @brief 写入显示行
+ * @param nav 导航器指针
+ * @param buffer 要写入的内容
+ * @param line 行号（0-3）
+ * @details 使用哈希值优化，只有内容改变时才更新显示
  */
-void navigator_set_app_mode(navigator_t* nav, bool is_app_mode) {
-    if (nav) {
-        nav->in_app_mode = is_app_mode;
+void navigator_write_display_line(navigator_t* nav, const char* buffer, uint8_t line) {
+    if (!nav || !buffer || line >= MAX_DISPLAY_ITEM) return;
+    
+    uint32_t new_hash = fast_hash(buffer, MAX_DISPLAY_CHAR);
+    
+    // 只有内容改变或强制更新时才写入
+    if (nav->display_lines[line].state == LINE_STATE_FORCE_UPDATE || 
+        nav->display_lines[line].hash != new_hash ||
+        string_content_changed(nav->display_lines[line].content, buffer, MAX_DISPLAY_CHAR)) {
+        
+        // 更新行内容
+        fast_memset_char(nav->display_lines[line].content, 0, MAX_DISPLAY_CHAR);
+        fast_strncpy_pad(nav->display_lines[line].content, buffer, MAX_DISPLAY_CHAR - 1);
+        
+        // 更新显示缓冲区
+        fast_memset_char(&nav->display_buffer[MAX_DISPLAY_CHAR * line], 0, MAX_DISPLAY_CHAR);
+        fast_strncpy_pad(&nav->display_buffer[MAX_DISPLAY_CHAR * line], buffer, MAX_DISPLAY_CHAR - 1);
+        
+        // 更新哈希值和状态
+        nav->display_lines[line].hash = new_hash;
+        nav->display_lines[line].state = LINE_STATE_UNCHANGED;
     }
 }
 
 /**
- * @brief 获取应用模式
+ * @brief 强制刷新显示
+ * @param nav 导航器指针
+ * @details 清空显示缓冲区并强制更新所有显示行
  */
-bool navigator_get_app_mode(const navigator_t* nav) {
-    return nav ? nav->in_app_mode : false;
+void navigator_force_refresh_display(navigator_t* nav) {
+    if (!nav) return;
+    
+    memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
+    navigator_mark_all_lines_dirty(nav);
+    navigator_refresh_display(nav);
+}
+
+/**
+ * @brief 标记所有行为脏数据
+ * @param nav 导航器指针
+ * @details 标记所有显示行需要强制更新
+ */
+void navigator_mark_all_lines_dirty(navigator_t* nav) {
+    if (!nav) return;
+    
+    for (uint8_t i = 0; i < MAX_DISPLAY_ITEM; i++) {
+        nav->display_lines[i].state = LINE_STATE_FORCE_UPDATE;
+    }
 }
 
 /**
  * @brief 获取显示缓冲区
+ * @param nav 导航器指针
+ * @return 显示缓冲区指针
+ * @details 返回包含所有显示内容的缓冲区，出错时返回错误信息
  */
 char* navigator_get_display_buffer(navigator_t* nav) {
     static char error_str[] = "No Menu Item";
@@ -759,67 +822,48 @@ char* navigator_get_display_buffer(navigator_t* nav) {
     return nav->display_buffer;
 }
 
-/**
- * @brief 写入显示缓冲区
- */
-void navigator_write_display_buffer(navigator_t* nav, const char* buffer, size_t size, uint8_t first_line) {
-    if (!nav || !buffer) return;
-    
-    memcpy(&nav->display_buffer[MAX_DISPLAY_CHAR * first_line], buffer, size);
-}
+/** @} */
 
 /**
- * @brief 写入显示行
+ * @defgroup NavigatorMode 导航器模式管理实现
+ * @brief 应用模式的设置和获取实现
+ * @{
  */
-void navigator_write_display_line(navigator_t* nav, const char* buffer, uint8_t line) {
-    if (!nav || !buffer || line >= MAX_DISPLAY_ITEM) return;
-    
-    uint32_t new_hash = fast_hash(buffer, MAX_DISPLAY_CHAR);
-    
-    if (nav->display_lines[line].state == LINE_STATE_FORCE_UPDATE || 
-        nav->display_lines[line].hash != new_hash ||
-        string_content_changed(nav->display_lines[line].content, buffer, MAX_DISPLAY_CHAR)) {
-        
-        fast_memset_char(nav->display_lines[line].content, 0, MAX_DISPLAY_CHAR);
-        fast_strncpy_pad(nav->display_lines[line].content, buffer, MAX_DISPLAY_CHAR - 1);
-        
-        fast_memset_char(&nav->display_buffer[MAX_DISPLAY_CHAR * line], 0, MAX_DISPLAY_CHAR);
-        fast_strncpy_pad(&nav->display_buffer[MAX_DISPLAY_CHAR * line], buffer, MAX_DISPLAY_CHAR - 1);
-        
-        nav->display_lines[line].hash = new_hash;
-        nav->display_lines[line].state = LINE_STATE_UNCHANGED;
+
+/**
+ * @brief 设置应用模式
+ * @param nav 导航器指针
+ * @param is_app_mode 是否为应用模式
+ * @details 设置导航器是否处于应用模式
+ */
+void navigator_set_app_mode(navigator_t* nav, bool is_app_mode) {
+    if (nav) {
+        nav->in_app_mode = is_app_mode;
     }
 }
 
 /**
- * @brief 强制刷新显示
+ * @brief 获取应用模式状态
+ * @param nav 导航器指针
+ * @return 是否处于应用模式
  */
-void navigator_force_refresh_display(navigator_t* nav) {
-    if (!nav) return;
-    
-    memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-    navigator_mark_all_lines_dirty(nav);
-    navigator_refresh_display(nav);
+bool navigator_get_app_mode(const navigator_t* nav) {
+    return nav ? nav->in_app_mode : false;
 }
 
-
+/** @} */
 
 /**
- * @brief 标记所有行为脏（需要强制更新）
+ * @defgroup NavigatorExhibition 展示模式管理实现
+ * @brief 展示类型菜单项的分页管理实现
+ * @{
  */
-void navigator_mark_all_lines_dirty(navigator_t* nav) {
-    if (!nav) return;
-    
-    for (uint8_t i = 0; i < MAX_DISPLAY_ITEM; i++) {
-        nav->display_lines[i].state = LINE_STATE_FORCE_UPDATE;
-    }
-}
 
-
-
-// 展示项分页相关函数
 /**
- * @brief 检查展示项是否支持分页
+ * @brief 检查是否可分页
+ * @param nav 导航器指针
+ * @return 当前选中项是否支持分页
+ * @details 检查当前选中项是否为展示类型且处于解锁状态且有多页
  */
 bool navigator_is_exhibition_pageable(const navigator_t* nav) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items || 
@@ -834,7 +878,9 @@ bool navigator_is_exhibition_pageable(const navigator_t* nav) {
 }
 
 /**
- * @brief 展示项下一页
+ * @brief 下一页
+ * @param nav 导航器指针
+ * @details 切换到展示项的下一页
  */
 void navigator_exhibition_next_page(navigator_t* nav) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items || 
@@ -849,7 +895,9 @@ void navigator_exhibition_next_page(navigator_t* nav) {
 }
 
 /**
- * @brief 展示项上一页
+ * @brief 上一页
+ * @param nav 导航器指针
+ * @details 切换到展示项的上一页
  */
 void navigator_exhibition_prev_page(navigator_t* nav) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items || 
@@ -864,7 +912,9 @@ void navigator_exhibition_prev_page(navigator_t* nav) {
 }
 
 /**
- * @brief 展示项重置到第一页
+ * @brief 重置到第一页
+ * @param nav 导航器指针
+ * @details 将展示项重置到第一页
  */
 void navigator_exhibition_reset_to_first_page(navigator_t* nav) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items || 
@@ -873,13 +923,15 @@ void navigator_exhibition_reset_to_first_page(navigator_t* nav) {
     }
     
     menu_item_t* selected_item = nav->current_menu->children_items[nav->selected_index];
-    if (selected_item->type == MENU_TYPE_EXHIBITION) {
-        menu_item_reset_to_first_page(selected_item);
+    if (selected_item->type == MENU_TYPE_EXHIBITION && !selected_item->is_locked) {
+        selected_item->data.exhibition.current_page = 0;
     }
 }
 
 /**
- * @brief 获取展示项当前页
+ * @brief 获取当前页码
+ * @param nav 导航器指针
+ * @return 当前页码（从0开始）
  */
 uint8_t navigator_get_exhibition_current_page(const navigator_t* nav) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items || 
@@ -889,13 +941,15 @@ uint8_t navigator_get_exhibition_current_page(const navigator_t* nav) {
     
     menu_item_t* selected_item = nav->current_menu->children_items[nav->selected_index];
     if (selected_item->type == MENU_TYPE_EXHIBITION) {
-        return menu_item_get_current_page(selected_item);
+        return selected_item->data.exhibition.current_page;
     }
     return 0;
 }
 
 /**
- * @brief 获取展示项总页数
+ * @brief 获取总页数
+ * @param nav 导航器指针
+ * @return 总页数
  */
 uint8_t navigator_get_exhibition_total_pages(const navigator_t* nav) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items || 
@@ -905,13 +959,24 @@ uint8_t navigator_get_exhibition_total_pages(const navigator_t* nav) {
     
     menu_item_t* selected_item = nav->current_menu->children_items[nav->selected_index];
     if (selected_item->type == MENU_TYPE_EXHIBITION) {
-        return menu_item_get_total_pages(selected_item);
+        return selected_item->data.exhibition.total_pages;
     }
     return 1;
 }
 
+/** @} */
+
+/**
+ * @defgroup NavigatorInfo 导航器信息获取实现
+ * @brief 获取当前菜单状态信息的实现
+ * @{
+ */
+
 /**
  * @brief 获取当前页面名称
+ * @param nav 导航器指针
+ * @return 当前页面名称字符串
+ * @details 返回当前菜单页面的名称，展示模式下包含页码信息
  */
 const char* navigator_get_current_page_name(const navigator_t* nav) {
     static char page_name_buffer[MAX_DISPLAY_CHAR * 2] = {0};
@@ -924,7 +989,6 @@ const char* navigator_get_current_page_name(const navigator_t* nav) {
     menu_item_t* selected_item = nav->current_menu->children_items[nav->selected_index];
     
     if (selected_item->type == MENU_TYPE_EXHIBITION && !selected_item->is_locked) {
-        // 在展示模式下，返回带分页信息的项名称
         if (selected_item->data.exhibition.total_pages > 1) {
             snprintf(page_name_buffer, sizeof(page_name_buffer), "%s(Page %d/%d)",
                      selected_item->item_name,
@@ -935,13 +999,14 @@ const char* navigator_get_current_page_name(const navigator_t* nav) {
         }
         return page_name_buffer;
     } else {
-        // 返回当前菜单名称
         return nav->current_menu->item_name;
     }
 }
 
 /**
- * @brief 获取当前选中的菜单项名称
+ * @brief 获取当前选中项名称
+ * @param nav 导航器指针
+ * @return 当前选中菜单项的名称
  */
 const char* navigator_get_current_selected_item_name(const navigator_t* nav) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items || 
@@ -953,7 +1018,10 @@ const char* navigator_get_current_selected_item_name(const navigator_t* nav) {
 }
 
 /**
- * @brief 检查是否在展示模式
+ * @brief 检查是否处于展示模式
+ * @param nav 导航器指针
+ * @return 是否处于展示模式
+ * @details 判断当前选中项是否为展示类型且处于解锁状态
  */
 bool navigator_is_in_exhibition_mode(const navigator_t* nav) {
     if (!nav || !nav->current_menu || !nav->current_menu->children_items || 
@@ -964,342 +1032,3 @@ bool navigator_is_in_exhibition_mode(const navigator_t* nav) {
     menu_item_t* selected_item = nav->current_menu->children_items[nav->selected_index];
     return (selected_item->type == MENU_TYPE_EXHIBITION && !selected_item->is_locked);
 }
-
-// 数据类型操作辅助函数实现
-/**
- * @brief 按类型递增值
- */
-static void increment_value_by_type(void* ref, void* step, data_type_t type) {
-    switch (type) {
-        case DATA_TYPE_UINT8:
-            *(uint8_t*)ref += *(uint8_t*)step;
-            break;
-        case DATA_TYPE_UINT16:
-            *(uint16_t*)ref += *(uint16_t*)step;
-            break;
-        case DATA_TYPE_UINT32:
-            *(uint32_t*)ref += *(uint32_t*)step;
-            break;
-        case DATA_TYPE_UINT64:
-            *(uint64_t*)ref += *(uint64_t*)step;
-            break;
-        case DATA_TYPE_INT8:
-            *(int8_t*)ref += *(int8_t*)step;
-            break;
-        case DATA_TYPE_INT16:
-            *(int16_t*)ref += *(int16_t*)step;
-            break;
-        case DATA_TYPE_INT32:
-            *(int32_t*)ref += *(int32_t*)step;
-            break;
-        case DATA_TYPE_INT64:
-            *(int64_t*)ref += *(int64_t*)step;
-            break;
-        case DATA_TYPE_FLOAT:
-            *(float*)ref += *(float*)step;
-            break;
-        case DATA_TYPE_DOUBLE:
-            *(double*)ref += *(double*)step;
-            break;
-    }
-}
-
-/**
- * @brief 按类型递减值
- */
-static void decrement_value_by_type(void* ref, void* step, void* min_val, data_type_t type) {
-    switch (type) {
-        case DATA_TYPE_UINT8:
-            *(uint8_t*)ref -= *(uint8_t*)step;
-            break;
-        case DATA_TYPE_UINT16:
-            *(uint16_t*)ref -= *(uint16_t*)step;
-            break;
-        case DATA_TYPE_UINT32:
-            *(uint32_t*)ref -= *(uint32_t*)step;
-            break;
-        case DATA_TYPE_UINT64:
-            *(uint64_t*)ref -= *(uint64_t*)step;
-            break;
-        case DATA_TYPE_INT8:
-            *(int8_t*)ref -= *(int8_t*)step;
-            break;
-        case DATA_TYPE_INT16:
-            *(int16_t*)ref -= *(int16_t*)step;
-            break;
-        case DATA_TYPE_INT32:
-            *(int32_t*)ref -= *(int32_t*)step;
-            break;
-        case DATA_TYPE_INT64:
-            *(int64_t*)ref -= *(int64_t*)step;
-            break;
-        case DATA_TYPE_FLOAT:
-            *(float*)ref -= *(float*)step;
-            break;
-        case DATA_TYPE_DOUBLE:
-            *(double*)ref -= *(double*)step;
-            break;
-    }
-}
-
-/**
- * @brief 检查值是否在范围内
- */
-static bool is_value_in_range(void* ref, void* min_val, void* max_val, data_type_t type, bool is_increment) {
-    switch (type) {
-        case DATA_TYPE_UINT8:
-            if (is_increment) {
-                return (*(uint8_t*)ref <= *(uint8_t*)max_val);
-            } else {
-                return (*(uint8_t*)ref >= *(uint8_t*)min_val);
-            }
-        case DATA_TYPE_UINT16:
-            if (is_increment) {
-                return (*(uint16_t*)ref <= *(uint16_t*)max_val);
-            } else {
-                return (*(uint16_t*)ref >= *(uint16_t*)min_val);
-            }
-        case DATA_TYPE_UINT32:
-            if (is_increment) {
-                return (*(uint32_t*)ref <= *(uint32_t*)max_val);
-            } else {
-                return (*(uint32_t*)ref >= *(uint32_t*)min_val);
-            }
-        case DATA_TYPE_UINT64:
-            if (is_increment) {
-                return (*(uint64_t*)ref <= *(uint64_t*)max_val);
-            } else {
-                return (*(uint64_t*)ref >= *(uint64_t*)min_val);
-            }
-        case DATA_TYPE_INT8:
-            if (is_increment) {
-                return (*(int8_t*)ref <= *(int8_t*)max_val);
-            } else {
-                return (*(int8_t*)ref >= *(int8_t*)min_val);
-            }
-        case DATA_TYPE_INT16:
-            if (is_increment) {
-                return (*(int16_t*)ref <= *(int16_t*)max_val);
-            } else {
-                return (*(int16_t*)ref >= *(int16_t*)min_val);
-            }
-        case DATA_TYPE_INT32:
-            if (is_increment) {
-                return (*(int32_t*)ref <= *(int32_t*)max_val);
-            } else {
-                return (*(int32_t*)ref >= *(int32_t*)min_val);
-            }
-        case DATA_TYPE_INT64:
-            if (is_increment) {
-                return (*(int64_t*)ref <= *(int64_t*)max_val);
-            } else {
-                return (*(int64_t*)ref >= *(int64_t*)min_val);
-            }
-        case DATA_TYPE_FLOAT:
-            if (is_increment) {
-                return (*(float*)ref <= *(float*)max_val);
-            } else {
-                return (*(float*)ref >= *(float*)min_val);
-            }
-        case DATA_TYPE_DOUBLE:
-            if (is_increment) {
-                return (*(double*)ref <= *(double*)max_val);
-            } else {
-                return (*(double*)ref >= *(double*)min_val);
-            }
-    }
-    return false;
-}
-
-/**
- * @brief 按类型格式化值
- */
-static void format_value_by_type(void* ref, data_type_t type, char* str, size_t size) {
-    switch (type) {
-        case DATA_TYPE_UINT8:
-        case DATA_TYPE_UINT16:
-            snprintf(str, size, "%u", *(uint16_t*)ref);
-            break;
-        case DATA_TYPE_UINT32:
-            snprintf(str, size, "%lu", *(uint32_t*)ref);
-            break;
-        case DATA_TYPE_UINT64:
-            snprintf(str, size, "%llu", *(uint64_t*)ref);
-            break;
-        case DATA_TYPE_INT8:
-        case DATA_TYPE_INT16:
-            snprintf(str, size, "%d", *(int16_t*)ref);
-            break;
-        case DATA_TYPE_INT32:
-            snprintf(str, size, "%ld", *(int32_t*)ref);
-            break;
-        case DATA_TYPE_INT64:
-            snprintf(str, size, "%lld", *(int64_t*)ref);
-            break;
-        case DATA_TYPE_FLOAT:
-            snprintf(str, size, "%.3f", *(float*)ref);
-            break;
-        case DATA_TYPE_DOUBLE:
-            snprintf(str, size, "%.6f", *(double*)ref);
-            break;
-        default:
-            snprintf(str, size, "<?>");
-            break;
-    }
-}
-
-/**
- * @brief 按类型复制值
- */
-static void copy_value_by_type(void* dest, void* src, data_type_t type) {
-    switch (type) {
-        case DATA_TYPE_UINT8:
-            *(uint8_t*)dest = *(uint8_t*)src;
-            break;
-        case DATA_TYPE_UINT16:
-            *(uint16_t*)dest = *(uint16_t*)src;
-            break;
-        case DATA_TYPE_UINT32:
-            *(uint32_t*)dest = *(uint32_t*)src;
-            break;
-        case DATA_TYPE_UINT64:
-            *(uint64_t*)dest = *(uint64_t*)src;
-            break;
-        case DATA_TYPE_INT8:
-            *(int8_t*)dest = *(int8_t*)src;
-            break;
-        case DATA_TYPE_INT16:
-            *(int16_t*)dest = *(int16_t*)src;
-            break;
-        case DATA_TYPE_INT32:
-            *(int32_t*)dest = *(int32_t*)src;
-            break;
-        case DATA_TYPE_INT64:
-            *(int64_t*)dest = *(int64_t*)src;
-            break;
-        case DATA_TYPE_FLOAT:
-            *(float*)dest = *(float*)src;
-            break;
-        case DATA_TYPE_DOUBLE:
-            *(double*)dest = *(double*)src;
-            break;
-    }
-}
-
-/**
- * @brief 处理向上导航
- */
-static void handle_navigation_up(navigator_t* nav) {
-    nav->selected_index = (nav->selected_index == 0) 
-        ? (nav->current_menu->children_count - 1) 
-        : (nav->selected_index - 1);
-        
-    if (nav->selected_index == nav->current_menu->children_count - 1) {
-        if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-        }
-        nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
-    }
-}
-
-/**
- * @brief 处理向下导航
- */
-static void handle_navigation_down(navigator_t* nav) {
-    nav->selected_index = (nav->selected_index + 1) % nav->current_menu->children_count;
-    
-    if (nav->selected_index == 0) {
-        if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-        }
-        nav->first_visible_item = 0;
-    }
-}
-
-/**
- * @brief 处理项目操作（向上）
- */
-static void handle_item_operation_up(navigator_t* nav, menu_item_t* current_item) {
-    switch (current_item->type) {
-        case MENU_TYPE_EXHIBITION:
-            if (current_item->is_locked) {
-                handle_navigation_up(nav);
-            } else {
-                menu_item_prev_page(current_item);
-            }
-            break;
-            
-        case MENU_TYPE_CHANGEABLE:
-            if (!current_item->is_locked) {
-                menu_item_increment(current_item);
-            } else {
-                handle_navigation_up(nav);
-            }
-            break;
-            
-        case MENU_TYPE_TOGGLE:
-            if (!current_item->is_locked) {
-                menu_item_toggle(current_item);
-            } else {
-                handle_navigation_up(nav);
-            }
-            break;
-            
-        default:
-            handle_navigation_up(nav);
-            break;
-    }
-}
-
-/**
- * @brief 处理项目操作（向下）
- */
-static void handle_item_operation_down(navigator_t* nav, menu_item_t* current_item) {
-    switch (current_item->type) {
-        case MENU_TYPE_EXHIBITION:
-            if (current_item->is_locked) {
-                handle_navigation_down(nav);
-            } else {
-                menu_item_next_page(current_item);
-            }
-            break;
-            
-        case MENU_TYPE_CHANGEABLE:
-            if (!current_item->is_locked) {
-                menu_item_decrement(current_item);
-            } else {
-                handle_navigation_down(nav);
-            }
-            break;
-            
-        case MENU_TYPE_TOGGLE:
-            if (!current_item->is_locked) {
-                menu_item_toggle(current_item);
-            } else {
-                handle_navigation_down(nav);
-            }
-            break;
-            
-        default:
-            handle_navigation_down(nav);
-            break;
-    }
-}
-
-/**
- * @brief 更新可见范围
- */
-static void update_visible_range(navigator_t* nav) {
-    if (nav->current_menu->children_count > MAX_DISPLAY_ITEM) {
-        if (nav->selected_index >= nav->first_visible_item + MAX_DISPLAY_ITEM) {
-            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-            navigator_mark_all_lines_dirty(nav);
-            nav->first_visible_item += MAX_DISPLAY_ITEM;
-        } else if (nav->selected_index < nav->first_visible_item && nav->selected_index != 0) {
-            memset(nav->display_buffer, 0, MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM);
-            navigator_mark_all_lines_dirty(nav);
-            nav->first_visible_item = nav->selected_index - (nav->selected_index % MAX_DISPLAY_ITEM);
-        }
-    }
-}
-

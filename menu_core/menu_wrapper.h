@@ -1,3 +1,11 @@
+/**
+ * @file menu_wrapper.h
+ * @brief 菜单系统C语言包装器头文件
+ * @details 提供C语言风格的菜单系统接口，封装底层导航器功能
+ * @author CodeBuddy
+ * @version 1.0
+ */
+
 #ifndef MENU_C_WRAPPER_H
 #define MENU_C_WRAPPER_H
 
@@ -7,232 +15,224 @@
 extern "C" {
 #endif
 
-/*==============================================================================
- * 需要用户实现的接口
- *============================================================================*/
 /**
- * @brief 在显示器上显示字符串
- * @param line 当前行（Y 轴）
- * @param str 需要显示的字符串
+ * @brief 显示字符串函数指针
+ * @param line 显示行号（0-3）
+ * @param str 要显示的字符串
+ * @details 用户需要实现此函数来处理实际的显示输出
+ * @note 此函数需要用户在外部实现
  */
 void menu_show_string(unsigned char line, char* str);
 
 /**
- * @brief 键值定义
- * @note 用于菜单导航的按键操作定义
+ * @defgroup MenuKeys 菜单按键枚举
+ * @brief 菜单系统支持的按键定义
+ * @{
  */
 enum
 {
-    UP,     ///< 上键：向上导航或上一页
-    DOWN,   ///< 下键：向下导航或下一页  
-    LEFT,   ///< 左键：返回上级菜单或退出展示模式
-    RIGHT,  ///< 右键：进入下级菜单或激活展示模式
-    NONE,   ///< 无按键操作
+    UP,     /**< 上键 */
+    DOWN,   /**< 下键 */
+    LEFT,   /**< 左键 */
+    RIGHT,  /**< 右键 */
+    NONE,   /**< 无按键 */
 };
+/** @} */
 
-
-/*==============================================================================
- * 基础菜单导航接口
- *============================================================================*/
+/**
+ * @defgroup MenuCore 菜单核心功能
+ * @brief 菜单系统的基本创建、销毁和操作功能
+ * @{
+ */
 
 /**
  * @brief 创建菜单导航器
- * @param mainMenu 主菜单项指针，由菜单结构定义生成
- * @return 菜单导航器实例指针，失败返回NULL
- * @note 使用完毕后需要调用menu_delete释放资源
- * @code
- * void* main_item = getMainItem();
- * void* navigator = menu_builder(main_item);
- * @endcode
+ * @param mainMenu 主菜单项指针
+ * @return 菜单导航器句柄，失败返回NULL
+ * @details 根据主菜单项创建菜单导航器实例
  */
-
-
 void* menu_builder(void* mainMenu);
 
 /**
  * @brief 销毁菜单导航器
- * @param navigator 菜单导航器指针
- * @note 释放菜单导航器占用的内存资源
- * @warning 销毁后不能再使用该指针
+ * @param navigator 菜单导航器句柄
+ * @details 释放菜单导航器占用的资源
  */
 void menu_delete(void* navigator);
 
 /**
- * @brief 处理按键输入
- * @param navigator 菜单导航器指针
- * @param key_value 按键值，参考上面的枚举定义
- * @note 根据当前菜单状态和按键类型执行相应的操作
- * @note 在展示模式下，UP/DOWN键用于翻页，LEFT键退出展示模式
- * @code
- * menu_handle_input(navigator, UP);    // 向上导航
- * menu_handle_input(navigator, RIGHT); // 进入菜单项
- * @endcode
+ * @brief 处理菜单按键输入
+ * @param navigator 菜单导航器句柄
+ * @param key_value 按键值（UP/DOWN/LEFT/RIGHT/NONE）
+ * @details 根据按键值执行相应的菜单操作
  */
 void menu_handle_input(void* navigator, uint8_t key_value);
 
+/** @} */
+
 /**
- * @brief 刷新菜单显示
- * @param navigator 菜单导航器指针
- * @note 更新显示缓冲区内容，应在按键处理后调用
- * @note 会执行展示型菜单项的回调函数更新数据
+ * @defgroup MenuDisplay 菜单显示功能
+ * @brief 菜单显示相关的功能函数
+ * @{
+ */
+
+/**
+ * @brief 刷新菜单显示内容
+ * @param navigator 菜单导航器句柄
+ * @details 更新菜单显示缓冲区的内容
  */
 void menu_refresh_display(void* navigator);
 
 /**
- * @brief 获取显示缓冲区指针
- * @param navigator 菜单导航器指针
- * @return 显示缓冲区数据指针，失败返回错误信息字符串
- * @note 返回的缓冲区大小为MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM
- * @note 每行MAX_DISPLAY_CHAR个字符，共MAX_DISPLAY_ITEM行
+ * @brief 获取菜单显示缓冲区
+ * @param navigator 菜单导航器句柄
+ * @return 显示缓冲区指针
+ * @details 返回包含所有菜单显示内容的缓冲区
  */
 char* menu_get_display_buffer(void* navigator);
 
 /**
- * @brief 更新并显示菜单
- * @param navigator 菜单导航器指针
+ * @brief 显示菜单内容
+ * @param navigator 菜单导航器句柄
+ * @details 刷新显示内容并调用menu_show_string函数输出到屏幕
+ * @note 此函数会自动调用用户实现的menu_show_string函数
  */
 void menu_display(void* navigator);
 
-/*==============================================================================
- * 菜单状态管理接口
- *============================================================================*/
+/**
+ * @brief 强制刷新菜单显示
+ * @param navigator 菜单导航器句柄
+ * @details 清空显示缓冲区并强制更新所有显示内容
+ */
+void menu_force_refresh_display(void* navigator);
+
+/** @} */
 
 /**
- * @brief 获取应用模式状态
- * @param navigator 菜单导航器指针
- * @return 1表示在应用模式，0表示在菜单模式
- * @note 应用模式下菜单导航被暂停，只响LEFT键退出
+ * @defgroup MenuMode 菜单模式管理
+ * @brief 菜单应用模式的设置和获取
+ * @{
+ */
+
+/**
+ * @brief 获取菜单应用模式状态
+ * @param navigator 菜单导航器句柄
+ * @return 应用模式状态（1：应用模式，0：菜单模式）
+ * @details 检查菜单是否处于应用程序模式
  */
 uint8_t menu_get_app_mode(void* navigator);
 
 /**
- * @brief 设置应用模式状态
- * @param navigator 菜单导航器指针
- * @param mode 1进入应用模式，0退出应用模式
- * @note 应用模式下只响LEFT键退出，其他按键被忽略
+ * @brief 设置菜单应用模式
+ * @param navigator 菜单导航器句柄
+ * @param mode 模式值（非0：应用模式，0：菜单模式）
+ * @details 设置菜单是否进入应用程序模式
  */
-
 void menu_set_app_mode(void* navigator, uint8_t mode);
 
-/**
- * @brief 强制刷新显示
- * @param navigator 菜单导航器指针
- * @note 清空显示缓冲区并强制重新绘制菜单
- * @note 通常在显示异常或需要强制更新时使用
- */
-void menu_force_refresh_display(void* navigator);
-
-
-/*==============================================================================
- * 展示型菜单项分页控制接口
- *============================================================================*/
+/** @} */
 
 /**
- * @brief 展示型菜单项翻至下一页
- * @param navigator 菜单导航器指针
- * @note 仅在展示模式下且支持分页时有效
- * @note 到达最后一页时会循环到第一页
- * @code
- * if (menu_exhibition_is_pageable(navigator)) {
- *     menu_exhibition_next_page(navigator);
- * }
- * @endcode
+ * @defgroup MenuExhibition 菜单展示功能
+ * @brief 展示类型菜单项的分页管理功能
+ * @{
  */
 
+/**
+ * @brief 展示项下一页
+ * @param navigator 菜单导航器句柄
+ * @details 切换当前展示项到下一页
+ */
 void menu_exhibition_next_page(void* navigator);
 
 /**
- * @brief 展示型菜单项翻至上一页
- * @param navigator 菜单导航器指针
- * @note 仅在展示模式下且支持分页时有效
- * @note 在第一页时会循环到最后一页
+ * @brief 展示项上一页
+ * @param navigator 菜单导航器句柄
+ * @details 切换当前展示项到上一页
  */
 void menu_exhibition_prev_page(void* navigator);
 
 /**
- * @brief 重置展示型菜单项到第一页
- * @param navigator 菜单导航器指针
- * @note 将当前展示型菜单项的页面重置为第一页
- * @note 不管当前是否在展示模式下都可以使用
+ * @brief 重置展示项到第一页
+ * @param navigator 菜单导航器句柄
+ * @details 将当前展示项重置到第一页
  */
-
 void menu_exhibition_reset_to_first_page(void* navigator);
 
 /**
- * @brief 获取展示型菜单项当前页码
- * @param navigator 菜单导航器指针
- * @return 当前页码（从0开始），失败返回0
- * @note 仅对展示型菜单项有效，其他类型菜单项返回0
+ * @brief 获取展示项当前页码
+ * @param navigator 菜单导航器句柄
+ * @return 当前页码（从0开始）
  */
 uint8_t menu_exhibition_get_current_page(void* navigator);
 
 /**
- * @brief 获取展示型菜单项总页数
- * @param navigator 菜单导航器指针
- * @return 总页数，失败返回1
- * @note 仅对展示型菜单项有效，其他类型菜单项返回1
+ * @brief 获取展示项总页数
+ * @param navigator 菜单导航器句柄
+ * @return 总页数
  */
 uint8_t menu_exhibition_get_total_pages(void* navigator);
 
 /**
- * @brief 检查展示型菜单项是否支持分页
- * @param navigator 菜单导航器指针
- * @return 1表示支持分页，0表示不支持
- * @note 需要同时满足：在展示模式下 + 总页数大于1
+ * @brief 检查展示项是否可分页
+ * @param navigator 菜单导航器句柄
+ * @return 是否可分页（1：可分页，0：不可分页）
+ * @details 检查当前选中的展示项是否支持分页操作
  */
-
 uint8_t menu_exhibition_is_pageable(void* navigator);
 
+/** @} */
 
-/*==============================================================================
- * 页面信息查询接口
- *============================================================================*/
+/**
+ * @defgroup MenuInfo 菜单信息获取
+ * @brief 获取菜单当前状态信息的功能
+ * @{
+ */
 
 /**
  * @brief 获取当前页面名称
- * @param navigator 菜单导航器指针
- * @return 当前页面名称字符串，失败返回"Unknown"
- * @note 返回格式说明：
- *       - 普通菜单：返回菜单名称，如"Main Menu"
- *       - 展示项（单页）：返回菜单项名称，如"RTC"
- *       - 展示项（多页）：返回带分页信息，如"SysInfo(Page 2/3)"
- * @warning 返回的字符串指针指向静态缓冲区，下次调用会被覆盖
+ * @param navigator 菜单导航器句柄
+ * @return 当前页面名称字符串
+ * @details 返回当前菜单页面的名称，展示模式下包含页码信息
  */
 const char* menu_get_current_page_name(void* navigator);
 
 /**
- * @brief 获取当前选中的菜单项名称
- * @param navigator 菜单导航器指针
- * @return 当前选中菜单项名称，失败返回"Unknown"
- * @note 始终返回当前选中的菜单项名称，如"SysInfo"、"LED"等
- * @note 不包含分页信息，仅返回菜单项的原始名称
+ * @brief 获取当前选中项名称
+ * @param navigator 菜单导航器句柄
+ * @return 当前选中菜单项的名称
  */
 const char* menu_get_current_selected_item_name(void* navigator);
 
 /**
- * @brief 检查是否在展示模式
- * @param navigator 菜单导航器指针
- * @return 1表示在展示型菜单项的激活状态，0表示在普通菜单浏览状态
- * @note 展示模式下UP/DOWN键用于翻页，LEFT键退出展示模式
- * @note 普通菜单模式下UP/DOWN键用于选择菜单项，RIGHT键进入菜单项
+ * @brief 检查是否处于展示模式
+ * @param navigator 菜单导航器句柄
+ * @return 是否处于展示模式（1：展示模式，0：普通模式）
+ * @details 判断当前是否处于展示类型菜单项的展示模式
  */
-
 uint8_t menu_is_in_exhibition_mode(void* navigator);
 
+/** @} */
+
 /**
- * @brief 跳转到指定名称的菜单项
- * @param navigator 菜单导航器指针
- * @param menu_name 目标菜单项的名称
- * @note 如果找到匹配的菜单项，导航器将跳转到该项。
- * @note 如果有多个同名菜单项，将跳转到先找到的那个。
- * @code
- * menu_goto(navigator, "Kp"); // 跳转到名为 "Kp" 的菜单项
- * @endcode
+ * @defgroup MenuNavigation 菜单导航功能
+ * @brief 菜单跳转和导航相关功能
+ * @{
+ */
+
+/**
+ * @brief 跳转到指定菜单项
+ * @param navigator 菜单导航器句柄
+ * @param menu_name 目标菜单项名称
+ * @details 根据菜单项名称直接跳转到指定的菜单项
+ * @note 此函数会在整个菜单树中搜索指定名称的菜单项
  */
 void menu_goto(void* navigator, const char* menu_name);
+
+/** @} */
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif //MENU_C_WRAPPER_H
+#endif

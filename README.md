@@ -4,6 +4,7 @@
 
 * 本项目包含了两个部分，菜单的底层框架以及配套的可视化配置器
 * 视频教程：https://www.bilibili.com/video/BV1EFpmzMEN8
+* 必备环境：需要保证编译器支持 C99 。（Keil MDK……）
 
 ## 快速开始
 
@@ -219,11 +220,12 @@ Easy_Menu 是一个专为嵌入式设备设计的高效菜单管理框架，特�
 
 #### 核心特性
 
-- **内存池优化**：采用预分配内存池机制，减少内存碎片，提升性能
-- **增量显示更新**：仅刷新变化的显示行，减少CPU和内存开销
-- **快速字符串操作**：使用DJB2哈希算法和优化的字符串构建函数
-- **零动态内存分配**：支持纯静态内存分配模式，适用于实时系统
-- **多种菜单类型**：支持普通菜单、可变菜单、切换菜单、应用菜单和展示菜单
+- **多类型菜单项支持**：普通菜单、开关菜单、数值调节菜单、展示菜单
+- **智能显示优化**：基于哈希值的增量更新，减少不必要的重绘
+- **灵活的导航模式**：支持按键导航和应用程序模式
+- **内存优化设计**：静态内存分配，避免动态内存管理
+- **高性能实现**：优化的字符串操作和快速哈希算法
+- **模块化架构**：清晰的代码结构，易于扩展和维护
 
 #### 菜单系统配置（在`menu_navigator_c.h`中修改以下宏定义：）
 
@@ -231,245 +233,22 @@ Easy_Menu 是一个专为嵌入式设备设计的高效菜单管理框架，特�
 |--------|--------|------|
 | `MAX_DISPLAY_CHAR` | 16 | 每行最大字符数 |
 | `MAX_DISPLAY_ITEM` | 4 | 显示的最大行数 |
-| `MENU_POOL_SIZE` | 64 | 内存池大小（菜单项数量） |
+| `MAX_STATIC_MENU_ITEMS` | 64 | 菜单项数量 |
 | `MENU_SELECT_CURSOR` | "->" | 默认选择指示符 |
 | `MENU_HAS_SUBMENU_INDICATOR` | ">>" | 锁定指示符 |
 
-### 菜单项类型
+### 基本操作
 
-#### 普通菜单项 (MENU_TYPE_NORMAL)
+1. 使用四方向按键进行导航
+   - **上/下键**：在菜单项间移动光标
+   - **右键**：进入子菜单或编辑模式
+   - **左键**：返回上级菜单或退出编辑模式
 
-用于构建菜单层次结构，可以包含子菜单项。
-
-```c
-// 创建子菜单项数组
-static menu_item_t* children[3];
-children[0] = menu_create_toggle_item("LED1", &led1_state, led1_callback);
-children[1] = menu_create_toggle_item("LED2", &led2_state, led2_callback);
-children[2] = menu_create_app_item("Save", NULL, save_config);
-
-// 创建普通菜单项
-menu_item_t* led_menu = menu_create_normal_item("LED Control", children, 3);
-```
-
-#### 切换菜单项 (MENU_TYPE_TOGGLE)
-
-用于布尔值的开关控制。
-
-```c
-bool led_state = false;
-
-void led_toggle_callback(bool state) {
-    // 设置LED状态
-    set_led(state);
-}
-
-menu_item_t* led_item = menu_create_toggle_item("LED", &led_state, led_toggle_callback);
-```
-
-**操作方式**:
-- 右键进入编辑模式，显示`>>`前缀
-- 上/下键切换ON/OFF状态
-- 左键退出编辑模式
-
-#### 可变菜单项 (MENU_TYPE_CHANGEABLE)
-
-用于数值类型的参数调节。
-
-```c
-float kp_value = 1.0f;
-float min_val = 0.0f;
-float max_val = 100.0f;
-float step_val = 0.1f;
-
-void kp_change_callback(void* value) {
-    // 参数改变时的处理
-    update_pid_parameters();
-}
-
-menu_item_t* kp_item = menu_create_changeable_item(
-    "Kp", &kp_value, &min_val, &max_val, &step_val, 
-    DATA_TYPE_FLOAT, kp_change_callback);
-```
-
-**支持的数据类型**:
-- `DATA_TYPE_UINT8/16/32/64`: 无符号整数
-- `DATA_TYPE_INT8/16/32/64`: 有符号整数  
-- `DATA_TYPE_FLOAT/DOUBLE`: 浮点数
-
-#### 应用菜单项
-
-用于执行特定的功能操作。
-
-```c
-void save_config_func(void** args) {
-    // 执行保存配置的操作
-    save_settings_to_flash();
-    display_message("Config Saved!");
-}
-
-menu_item_t* save_item = menu_create_app_item("Save Config", NULL, save_config_func);
-```
-
-#### 展示菜单项 (MENU_TYPE_EXHIBITION)
-
-用于显示动态信息，支持分页显示。
-
-##### 带导航器的展示项
-
-```c
-void system_info_callback(navigator_t* nav) {
-    char buffer[16];
-    
-    // 显示CPU使用率
-    snprintf(buffer, sizeof(buffer), "CPU: %d%%", get_cpu_usage());
-    navigator_write_display_line(nav, buffer, 1);
-    
-    // 显示内存使用率
-    snprintf(buffer, sizeof(buffer), "MEM: %d%%", get_memory_usage());
-    navigator_write_display_line(nav, buffer, 2);
-}
-
-menu_item_t* info_item = menu_create_exhibition_item_with_nav("System Info", system_info_callback);
-```
-
-##### 分页展示项
-
-```c
-void multi_page_callback(navigator_t* nav, uint8_t current_page, uint8_t total_pages) {
-    char buffer[16];
-    
-    switch(current_page) {
-        case 0: // 第一页：系统状态
-            snprintf(buffer, sizeof(buffer), "Sys Status");
-            navigator_write_display_line(nav, buffer, 1);
-            snprintf(buffer, sizeof(buffer), "CPU: %d%%", get_cpu_usage());
-            navigator_write_display_line(nav, buffer, 2);
-            break;
-            
-        case 1: // 第二页：网络信息
-            snprintf(buffer, sizeof(buffer), "Network Info");
-            navigator_write_display_line(nav, buffer, 1);
-            snprintf(buffer, sizeof(buffer), "IP: %s", get_ip_address());
-            navigator_write_display_line(nav, buffer, 2);
-            break;
-    }
-}
-
-menu_item_t* multi_item = menu_create_exhibition_item_with_page("Multi Info", 2, multi_page_callback);
-```
-
-**展示项操作**:
-- 右键进入展示模式
-- 上/下键翻页（如果支持分页）
-- 左键退出展示模式
-
-### API参考
-
-#### 核心导航器API
-
-##### navigator_create()
-```c
-navigator_t* navigator_create(menu_item_t* main_item);
-```
-创建菜单导航器实例。
-
-**参数**:
-- `main_item`: 主菜单项指针
-
-**返回值**: 导航器实例指针，失败返回NULL
-
-##### navigator_handle_input()
-```c
-void navigator_handle_input(navigator_t* nav, key_value_t key_value);
-```
-处理按键输入。
-
-**参数**:
-- `nav`: 导航器实例
-- `key_value`: 按键值（KEY_UP/DOWN/LEFT/RIGHT/NONE）
-
-##### navigator_refresh_display()
-```c
-void navigator_refresh_display(navigator_t* nav);
-```
-刷新显示内容（使用增量更新优化）。
-
-##### navigator_get_display_buffer()
-```c
-char* navigator_get_display_buffer(navigator_t* nav);
-```
-获取显示缓冲区指针。
-
-**返回值**: 显示缓冲区数据，大小为`MAX_DISPLAY_CHAR * MAX_DISPLAY_ITEM`
-
-#### 菜单项创建API
-
-##### 基本菜单项
-```c
-menu_item_t* menu_create_normal_item(const char* name, menu_item_t** children_items, uint8_t count);
-menu_item_t* menu_create_toggle_item(const char* name, bool* ref, void (*on_toggle)(bool));
-menu_item_t* menu_create_changeable_item(const char* name, void* ref, void* min_val, void* max_val, void* step_val, data_type_t data_type, void (*on_change)(void*));
-menu_item_t* menu_create_app_item(const char* name, void** app_args, void (*app_func)(void**));
-```
-
-##### 展示菜单项
-```c
-menu_item_t* menu_create_exhibition_item_with_nav(const char* name, void (*callback)(navigator_t*));
-menu_item_t* menu_create_exhibition_item_with_page(const char* name, uint8_t total_pages, void (*callback)(navigator_t*, uint8_t, uint8_t));
-```
-
-#### 内存池管理API
-
-```c
-void memory_pool_init(void);                    // 初始化内存池
-menu_item_t* memory_pool_alloc(void);          // 分配菜单项
-void memory_pool_free(menu_item_t* item);      // 释放菜单项
-size_t memory_pool_get_usage(void);            // 获取内存池使用率
-```
-
-### 高级功能
-
-#### 内存池管理
-
-系统采用内存池机制管理菜单项内存，预分配固定大小的内存块，避免内存碎片。
-
-```c
-// 检查内存池使用情况
-size_t used_items = memory_pool_get_usage();
-if (used_items > MENU_POOL_SIZE * 0.8) {
-    // 内存池使用率超过80%，考虑优化
-    warning("Memory pool usage high: %d/%d", used_items, MENU_POOL_SIZE);
-}
-```
-
-#### 增量显示更新
-
-系统使用哈希比较和行状态管理实现增量更新，仅刷新变化的显示行。
-
-```c
-// 手动标记所有行需要强制更新
-navigator_mark_all_lines_dirty(nav);
-
-// 写入特定行（自动进行增量更新检查）
-navigator_write_display_line(nav, "New Content", 0);
-```
-
-#### 展示项分页控制
-
-```c
-// 检查当前选中项是否支持分页
-if (navigator_is_exhibition_pageable(nav)) {
-    uint8_t current = navigator_get_exhibition_current_page(nav);
-    uint8_t total = navigator_get_exhibition_total_pages(nav);
-    printf("Page %d/%d", current + 1, total);
-}
-
-// 程序化控制分页
-navigator_exhibition_next_page(nav);      // 下一页
-navigator_exhibition_prev_page(nav);      // 上一页
-navigator_exhibition_reset_to_first_page(nav); // 重置到第一页
-```
+2. 不同菜单项类型的操作
+   - **普通菜单**：右键进入子菜单或启动应用
+   - **开关菜单**：右键解锁，上/下键切换状态
+   - **数值菜单**：右键解锁，上/下键调节数值
+   - **展示菜单**：右键进入展示模式，上/下键翻页
 
 ### 技术支持
 
@@ -483,7 +262,7 @@ navigator_exhibition_reset_to_first_page(nav); // 重置到第一页
 
 [RealTaseny/Easy_Menu_builder: An open source sofaware base on Qt, which you can easily build your own C++-based static menu navigator.](https://github.com/RealTaseny/Easy_Menu_builder)
 
-# 作者
+# 作者的话
 
 * 如果觉得有帮助，请动动手指点一个 ⭐，非常感谢！
 * 在使用过程中出现 BUG 或者觉得哪里的使用不够方便的话，欢迎提交 issue

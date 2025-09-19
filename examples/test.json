@@ -48,6 +48,13 @@
                                 "is_locked": true,
                                 "children": [
                                   {
+                                    "name": "Home",
+                                    "type": "Application",
+                                    "id": "7d0ea63d-1b60-47b7-811a-75aff3b37eec",
+                                    "is_locked": true,
+                                    "enable_callback": true
+                                  },
+                                  {
                                     "name": "End",
                                     "type": "Normal",
                                     "id": "3e4362dc-4647-4b1e-9642-84c86a771f27",
@@ -235,6 +242,7 @@
             "min_val": 0.0,
             "max_val": 100.0,
             "step_val": 1.0,
+            "current_val": 0.0,
             "enable_callback": true
           },
           {
@@ -247,6 +255,7 @@
             "min_val": 0.0,
             "max_val": 100.0,
             "step_val": 1.0,
+            "current_val": 0.0,
             "enable_callback": true
           },
           {
@@ -259,6 +268,7 @@
             "min_val": 0.0,
             "max_val": 100.0,
             "step_val": 1.0,
+            "current_val": 0.0,
             "enable_callback": true
           }
         ]

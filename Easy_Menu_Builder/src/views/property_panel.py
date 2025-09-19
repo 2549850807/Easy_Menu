@@ -95,8 +95,10 @@ class PropertyPanel(QWidget):
         
         if self.current_item.type == MenuItemType.CHANGEABLE:
             self.data_type_combo = QComboBox()
+            # Changeable 菜单项只支持数值类型，不支持 bool 类型
             for data_type in DataType:
-                self.data_type_combo.addItem(data_type.value, data_type)
+                if data_type != DataType.BOOL:  # 排除 bool 类型
+                    self.data_type_combo.addItem(data_type.value, data_type)
             if self.current_item.data_type:
                 index = self.data_type_combo.findData(self.current_item.data_type)
                 if index >= 0:

@@ -6,7 +6,7 @@ from ..models.menu_item_model import MenuItemModel, MenuItemType, DataType
 class CodeGenerator:
     def __init__(self, config: MenuConfigModel):
         self.config = config
-        self.includes = ['#include "menu_navigator.h"', '#include <stdint.h>', '#include <stdio.h>']
+        self.includes = ['#include "menu_navigator.h"', '#include "menu_wrapper.h"', '#include <stdint.h>', '#include <stdio.h>']
 
     def generate_c_code(self) -> str:
         """生成完整的C代码"""
@@ -14,28 +14,26 @@ class CodeGenerator:
             return "// 未找到根菜单项"
         
         variables_code = self._generate_variables()
-        
         callback_code = self._generate_callbacks()
-        
-        menu_creation_code = self._generate_menu_creation()
-        
-        main_menu_code = self._generate_main_menu()
+        static_definitions_code = self._generate_static_definitions()
+        compatibility_functions_code = self._generate_compatibility_functions()
         
         code_parts = [
             "\n".join(self.includes),
             "",
-            "// 生成的变量定义",
+            "/* ============================ 生成的变量定义 ============================  */",
             variables_code,
             "",
-            "// 回调函数",
+            "/* ============================ 回调函数 ============================  */",
             callback_code,
             "",
-            "// 创建菜单项",
-            menu_creation_code,
+            "/* ============================ 静态菜单项定义 ============================  */",
+            static_definitions_code,
             "",
-            main_menu_code,
+            "/* ============================ 兼容性函数 ============================  */",
+            compatibility_functions_code,
             "",
-            "// 获取主菜单项",
+            "/* ============================ 获取主菜单项 ============================  */",
             "void* getMainItem(void) {",
             "    return Create_Main_Menu();",
             "}",
@@ -77,10 +75,17 @@ class CodeGenerator:
                 if item.type == MenuItemType.TOGGLE:
                     variables_with_types[var_name] = (item.state, DataType.BOOL)
                 elif item.type == MenuItemType.CHANGEABLE:
-                    if item.data_type in [DataType.FLOAT, DataType.DOUBLE]:
-                        variables_with_types[var_name] = (0.0, item.data_type)
+                    min_val = item.min_val if item.min_val is not None else (0.0 if item.data_type in [DataType.FLOAT, DataType.DOUBLE] else 0)
+                    max_val = item.max_val if item.max_val is not None else (100.0 if item.data_type in [DataType.FLOAT, DataType.DOUBLE] else 100)
+                    
+                    if min_val > 0:
+                        initial_val = min_val
+                    elif max_val < 0:
+                        initial_val = max_val
                     else:
-                        variables_with_types[var_name] = (0, item.data_type)
+                        initial_val = 0.0 if item.data_type in [DataType.FLOAT, DataType.DOUBLE] else 0
+                    
+                    variables_with_types[var_name] = (initial_val, item.data_type)
             
             for child in item.children:
                 collect_from_item(child)
@@ -92,10 +97,8 @@ class CodeGenerator:
 
     def _generate_variables(self) -> str:
         """生成变量声明代码"""
-        # 收集带类型信息的变量
         variables_with_types = self._collect_variables_with_types_from_items()
         
-        # 处理配置中的普通变量（没有类型信息，使用原来的推断逻辑）
         config_variables = {}
         for var_name, var_value in self.config.variables.items():
             if isinstance(var_value, bool):
@@ -103,7 +106,6 @@ class CodeGenerator:
             elif isinstance(var_value, float):
                 config_variables[var_name] = (var_value, DataType.FLOAT)
             elif isinstance(var_value, int):
-                # 对于配置变量，保持原来的推断逻辑
                 if -128 <= var_value <= 127:
                     config_variables[var_name] = (var_value, DataType.INT8)
                 elif -32768 <= var_value <= 32767:
@@ -111,7 +113,6 @@ class CodeGenerator:
                 else:
                     config_variables[var_name] = (var_value, DataType.INT32)
         
-        # 合并所有变量
         all_variables_with_types = {**config_variables, **variables_with_types}
         
         if not all_variables_with_types:
@@ -138,7 +139,7 @@ class CodeGenerator:
         return "\n".join(lines)
 
     def _generate_callbacks(self) -> str:
-        """生成回调函数（声明和实现在一起）"""
+        """生成回调函数"""
         lines = []
         
         callbacks_needed = set()
@@ -193,7 +194,7 @@ class CodeGenerator:
                         lines.append("    snprintf(buffer, sizeof(buffer), \"data%d\", i);")
                         lines.append("    navigator_write_display_line(nav, buffer, i);")
                     else:
-                        lines.append("    /* TODO: 实现分页展示回调函数（行数要小于 MAX_DISPLAY_ITEM） */")
+                        lines.append("    /* TODO: 实现分页展示回调函数 */")
                         lines.append("    switch(current_page)")
                         lines.append("    {")
                         
@@ -247,148 +248,152 @@ class CodeGenerator:
         for child in item.children:
             self._collect_callbacks_with_types(child, callbacks, callback_types, callback_items)
 
-    def _generate_menu_creation(self) -> str:
-        """生成菜单创建函数代码"""
+    def _generate_static_definitions(self) -> str:
+        """生成静态菜单项定义"""
         if not self.config.root_item:
             return "// 无菜单项"
-            
+        
         lines = []
         
-        menu_items = self._collect_menu_items(self.config.root_item)
+        all_items = []
+        self._collect_all_items(self.config.root_item, all_items)
         
-        used_function_names = {}
-        item_function_names = {}
+        lines.append("")
+        for item in all_items:
+            var_name = self._get_menu_var_name(item)
+            lines.append(f"static menu_item_t {var_name};")
         
-        for item in menu_items:
-            func_name = self._get_unique_function_name(item, used_function_names)
-            item_function_names[item] = func_name
+        lines.append("")
+        for item in all_items:
+            if item.children:
+                array_name = self._get_children_array_name(item)
+                child_refs = []
+                for child in item.children:
+                    child_var = self._get_menu_var_name(child)
+                    child_refs.append(f"&{child_var}")
+                lines.append(f"static menu_item_t* {array_name}[] = {{{', '.join(child_refs)}}};")
         
-        for item in menu_items:
-            self._generate_single_menu_function(item, lines, item_function_names)
-            
+        lines.append("")
+        for item in all_items:
+            if item.type == MenuItemType.CHANGEABLE:
+                var_name = getattr(item, 'variable_name', item.name)
+                c_type = self._get_c_type(item.data_type)
+                suffix = "f" if item.data_type in [DataType.FLOAT, DataType.DOUBLE] else ""
+                min_val = item.min_val if item.min_val is not None else (0.0 if item.data_type in [DataType.FLOAT, DataType.DOUBLE] else 0)
+                max_val = item.max_val if item.max_val is not None else (100.0 if item.data_type in [DataType.FLOAT, DataType.DOUBLE] else 100)
+                step_val = item.step_val if item.step_val is not None else (1.0 if item.data_type in [DataType.FLOAT, DataType.DOUBLE] else 1)
+                
+                lines.append(f"static {c_type} {var_name}_min_val = {min_val}{suffix};")
+                lines.append(f"static {c_type} {var_name}_max_val = {max_val}{suffix};")
+                lines.append(f"static {c_type} {var_name}_step_val = {step_val}{suffix};")
+        
+        lines.append("")
+        for item in all_items:
+            lines.extend(self._generate_static_menu_item(item))
+            lines.append("")
+        
         return "\n".join(lines)
 
-    def _collect_menu_items(self, root_item: MenuItemModel) -> List[MenuItemModel]:
-        """收集所有菜单项并按依赖顺序排列"""
-        items = []
-        self._collect_items_recursive(root_item, items)
-        return items
-
-    def _collect_items_recursive(self, item: MenuItemModel, items: List[MenuItemModel]):
-        """递归收集菜单项"""
+    def _collect_all_items(self, item: MenuItemModel, items: List[MenuItemModel]):
+        """收集所有菜单项"""
+        items.append(item)
         for child in item.children:
-            self._collect_items_recursive(child, items)
-        
-        if item not in items and item != self.config.root_item:
-            items.append(item)
+            self._collect_all_items(child, items)
 
-    def _generate_main_menu(self) -> str:
-        """生成主菜单创建函数"""
-        if not self.config.root_item:
-            return "// 无主菜单"
-            
-        lines = ["static menu_item_t* Create_Main_Menu(void) {"]
-        
-        if self.config.root_item.children:
-            lines.append(f"    static menu_item_t* main_children[{len(self.config.root_item.children)}];")
-            lines.append("")
-            
-            for i, child in enumerate(self.config.root_item.children):
-                func_name = self._get_unique_function_name(child, {})
-                lines.append(f"    main_children[{i}] = {func_name}();")
-            lines.append("")
-            
-            lines.append(f"    return menu_create_normal_item(\"{self.config.root_item.name}\", main_children, {len(self.config.root_item.children)});")
+    def _get_menu_var_name(self, item: MenuItemModel) -> str:
+        """获取菜单项的变量名"""
+        if item.type in [MenuItemType.TOGGLE, MenuItemType.CHANGEABLE] and hasattr(item, 'variable_name'):
+            name = self._sanitize_name(item.variable_name).lower()
         else:
-            lines.append("    static menu_item_t** no_children = NULL;")
-            lines.append(f"    return menu_create_normal_item(\"{self.config.root_item.name}\", no_children, 0);")
-            
-        lines.append("}")
-        return "\n".join(lines)
+            name = self._sanitize_name(item.name).lower()
+        return f"menu_{name}"
 
-    def _generate_single_menu_function(self, item: MenuItemModel, lines: List[str], item_function_names: dict):
-        """生成单个菜单项的创建函数"""
-        function_name = item_function_names[item]
-        lines.append(f"static menu_item_t* {function_name}(void) {{")
+    def _get_children_array_name(self, item: MenuItemModel) -> str:
+        """获取子菜单数组名"""
+        name = self._sanitize_name(item.name).lower()
+        return f"{name}_children"
+
+    def _generate_static_menu_item(self, item: MenuItemModel) -> List[str]:
+        """生成单个静态菜单项定义"""
+        lines = []
+        var_name = self._get_menu_var_name(item)
+        
+        lines.append(f"static menu_item_t {var_name} = {{")
+        lines.append("    .is_locked = true,")
+        lines.append(f"    .item_name = \"{item.name}\",")
+        
+        if item.parent:
+            parent_var = self._get_menu_var_name(item.parent)
+            lines.append(f"    .parent_item = &{parent_var},")
+        else:
+            lines.append("    .parent_item = NULL,")
+        
+        if item.children:
+            array_name = self._get_children_array_name(item)
+            lines.append(f"    .children_items = {array_name},")
+            lines.append(f"    .children_count = {len(item.children)},")
+        else:
+            lines.append("    .children_items = NULL,")
+            lines.append("    .children_count = 0,")
         
         if item.type == MenuItemType.NORMAL:
-            if item.children:
-                children_array_name = self._sanitize_name(item.name)
-                lines.append(f"    static menu_item_t* {children_array_name}_children[{len(item.children)}];")
-                lines.append("")
-                for i, child in enumerate(item.children):
-                    child_func_name = item_function_names[child]
-                    lines.append(f"    {children_array_name}_children[{i}] = {child_func_name}();")
-                lines.append("")
-                lines.append(f"    return menu_create_normal_item(\"{item.name}\", {children_array_name}_children, {len(item.children)});")
-            else:
-                lines.append(f"    static menu_item_t** no_children = NULL;")
-                lines.append(f"    return menu_create_normal_item(\"{item.name}\", no_children, 0);")
+            lines.append("    .type = MENU_TYPE_NORMAL")
         elif item.type == MenuItemType.TOGGLE:
-            var_name = getattr(item, 'variable_name', item.name)
-            var_ref = f"&g_menu_vars.{self._sanitize_name(var_name)}"
-            callback_name = f"{self._capitalize_name(var_name)}_Toggle_Callback"
-            if item.enable_callback:
-                lines.append(f"    return menu_create_toggle_item(\"{item.name}\", {var_ref}, {callback_name});")
-            else:
-                lines.append(f"    return menu_create_toggle_item(\"{item.name}\", {var_ref}, NULL);")
+            lines.append("    .type = MENU_TYPE_TOGGLE,")
+            var_name_ref = getattr(item, 'variable_name', item.name)
+            callback_name = f"{self._capitalize_name(var_name_ref)}_Toggle_Callback" if item.enable_callback else "NULL"
+            lines.append("    .data.toggle = {")
+            lines.append(f"        .state = {'true' if item.state else 'false'},")
+            lines.append(f"        .ref = &g_menu_vars.{var_name_ref},")
+            lines.append(f"        .on_toggle = {callback_name}")
+            lines.append("    }")
         elif item.type == MenuItemType.CHANGEABLE:
-            var_name = getattr(item, 'variable_name', item.name)
-            var_ref = f"&g_menu_vars.{self._sanitize_name(var_name)}"
+            lines.append("    .type = MENU_TYPE_CHANGEABLE,")
+            var_name_ref = getattr(item, 'variable_name', item.name)
             data_type = self._map_data_type(item.data_type)
-            callback_name = f"{self._capitalize_name(var_name)}_Change_Callback"
-            
-            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_min_val = {item.min_val if item.min_val is not None else 0.0}f;")
-            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_max_val = {item.max_val if item.max_val is not None else 100.0}f;")
-            lines.append(f"    static {self._get_c_type(item.data_type)} {var_name}_step_val = {item.step_val if item.step_val is not None else 1.0}f;")
-            
-            if item.enable_callback:
-                lines.append(f"    return menu_create_changeable_item(\"{item.name}\", {var_ref}, &{var_name}_min_val, &{var_name}_max_val, &{var_name}_step_val, {data_type}, {callback_name});")
-            else:
-                lines.append(f"    return menu_create_changeable_item(\"{item.name}\", {var_ref}, &{var_name}_min_val, &{var_name}_max_val, &{var_name}_step_val, {data_type}, NULL);")
+            callback_name = f"{self._capitalize_name(var_name_ref)}_Change_Callback" if item.enable_callback else "NULL"
+            lines.append("    .data.changeable = {")
+            lines.append(f"        .ref = &g_menu_vars.{var_name_ref},")
+            lines.append(f"        .min_val = &{var_name_ref}_min_val,")
+            lines.append(f"        .max_val = &{var_name_ref}_max_val,")
+            lines.append(f"        .step_val = &{var_name_ref}_step_val,")
+            lines.append(f"        .data_type = {data_type},")
+            lines.append(f"        .on_change = {callback_name}")
+            lines.append("    }")
         elif item.type == MenuItemType.APPLICATION:
-            callback_name = f"{self._capitalize_name(item.name)}_App_Callback"
-            if item.enable_callback:
-                lines.append(f"    return menu_create_app_item(\"{item.name}\", NULL, {callback_name});")
-            else:
-                lines.append(f"    return menu_create_app_item(\"{item.name}\", NULL, NULL);")
+            lines.append("    .type = MENU_TYPE_NORMAL,")
+            callback_name = f"{self._capitalize_name(item.name)}_App_Callback" if item.enable_callback else "NULL"
+            lines.append(f"    .app_func = {callback_name},")
+            lines.append("    .app_args = NULL")
         elif item.type == MenuItemType.EXHIBITION:
-            callback_name = f"{self._capitalize_name(item.name)}_Exhibition_Callback"
-            if item.enable_callback:
-                lines.append(f"    return menu_create_exhibition_item(\"{item.name}\", {item.total_pages}, {callback_name});")
-            else:
-                lines.append(f"    return menu_create_exhibition_item(\"{item.name}\", {item.total_pages}, NULL);")
+            lines.append("    .type = MENU_TYPE_EXHIBITION,")
+            callback_name = f"{self._capitalize_name(item.name)}_Exhibition_Callback" if item.enable_callback else "NULL"
+            lines.append(f"    .periodic_callback_with_page = {callback_name},")
+            lines.append("    .data.exhibition = {")
+            lines.append("        .current_page = 0,")
+            lines.append(f"        .total_pages = {item.total_pages},")
+            lines.append("        .lines_per_page = MAX_DISPLAY_ITEM - 1")
+            lines.append("    }")
         
-        lines.append("}")
-        lines.append("")
+        lines.append("};")
+        return lines
 
-    def _get_capitalized_function_name_base(self, item: MenuItemModel) -> str:
-        """获取基础的首字母大写的菜单项函数名（不带唯一性后缀）"""
-        if item.type in [MenuItemType.TOGGLE, MenuItemType.CHANGEABLE]:
-            var_name = getattr(item, 'variable_name', item.name)
-            capitalized_name = self._capitalize_name(var_name)
-        else:
-            capitalized_name = self._capitalize_name(item.name)
+    def _generate_compatibility_functions(self) -> str:
+        """生成兼容性函数"""
+        if not self.config.root_item:
+            return "// 无兼容性函数"
         
-        return f"Create_{capitalized_name}_Menu"
-
-    def _get_unique_function_name(self, item: MenuItemModel, used_function_names: dict) -> str:
-        """获取唯一的菜单项函数名"""
-        base_name = self._get_capitalized_function_name_base(item)
+        root_var_name = self._get_menu_var_name(self.config.root_item)
+        lines = [
+            f"static menu_item_t* Create_Main_Menu(void) {{",
+            f"    return &{root_var_name};",
+            "}"
+        ]
         
-        if base_name not in used_function_names:
-            used_function_names[base_name] = 1
-            return base_name
-        
-        counter = used_function_names[base_name]
-        unique_name = f"{base_name}_{counter}"
-        
-        used_function_names[base_name] = counter + 1
-        
-        return unique_name
+        return "\n".join(lines)
 
     def _get_capitalized_function_name(self, item: MenuItemModel) -> str:
-        """获取首字母大写的菜单项函数名（为了向后兼容保留此方法）"""
+        """获取首字母大写的菜单项函数名"""
         if item.type in [MenuItemType.TOGGLE, MenuItemType.CHANGEABLE]:
             var_name = getattr(item, 'variable_name', item.name)
             capitalized_name = self._capitalize_name(var_name)
@@ -403,11 +408,6 @@ class CodeGenerator:
         if sanitized and sanitized[0].isdigit():
             sanitized = "_" + sanitized
         return sanitized if sanitized else "item"
-
-    def _get_function_name(self, item: MenuItemModel) -> str:
-        """获取菜单项的函数名"""
-        name_prefix = self._sanitize_name(item.name)
-        return name_prefix
 
     def _map_data_type(self, data_type: DataType) -> str:
         """映射数据类型到C枚举"""
