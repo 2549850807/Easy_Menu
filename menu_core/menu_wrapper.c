@@ -1,11 +1,3 @@
-/**
- * @file menu_wrapper.c
- * @brief 菜单系统C语言包装器实现文件
- * @details 实现C语言风格的菜单系统接口，封装底层导航器功能
- * @author CodeBuddy
- * @version 1.0
- */
-
 #include "menu_wrapper.h"
 #include "menu_navigator.h"
 #include <string.h>

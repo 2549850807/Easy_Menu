@@ -1,11 +1,3 @@
-/**
- * @file menu_navigator.c
- * @brief 菜单导航器核心实现文件
- * @details 实现菜单系统的核心导航逻辑、显示管理和按键处理功能
- * @author CodeBuddy
- * @version 1.0
- */
-
 #include "menu_navigator.h"
 #include <string.h>
 #include <stdio.h>
@@ -259,8 +251,22 @@ static void format_value_by_type(void* ref, data_type_t type, char* str, size_t 
         case DATA_TYPE_INT16: snprintf(str, size, "%d", *(int16_t*)ref); break;
         case DATA_TYPE_INT32: snprintf(str, size, "%ld", *(int32_t*)ref); break;
         case DATA_TYPE_INT64: snprintf(str, size, "%lld", *(int64_t*)ref); break;
-        case DATA_TYPE_FLOAT: snprintf(str, size, "%.3f", *(float*)ref); break;
-        case DATA_TYPE_DOUBLE: snprintf(str, size, "%.6f", *(double*)ref); break;
+        case DATA_TYPE_FLOAT: {
+            int32_t scaled = (int32_t)(*(float*)ref * 1000.0f);
+            int32_t integer = scaled / 1000;
+            int32_t fraction = scaled % 1000;
+            if (fraction < 0) fraction = -fraction;
+            snprintf(str, size, "%ld.%03ld", integer, fraction);
+            break;
+        }
+        case DATA_TYPE_DOUBLE: {
+            int64_t scaled = (int64_t)(*(double*)ref * 1000000.0);
+            int64_t integer = scaled / 1000000;
+            int64_t fraction = scaled % 1000000;
+            if (fraction < 0) fraction = -fraction;
+            snprintf(str, size, "%lld.%06lld", integer, fraction);
+            break;
+        }
         default: snprintf(str, size, "<?>");
     }
 }

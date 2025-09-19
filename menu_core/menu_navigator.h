@@ -1,11 +1,3 @@
-/**
- * @file menu_navigator.h
- * @brief 菜单导航器核心头文件
- * @details 定义了菜单系统的核心数据结构、枚举类型和函数接口
- * @author CodeBuddy
- * @version 1.0
- */
-
 #ifndef MENU_NAVIGATOR_C_H
 #define MENU_NAVIGATOR_C_H
 
@@ -350,5 +342,7 @@ const char* navigator_get_current_selected_item_name(const navigator_t* nav);
  * @details 判断当前选中项是否为展示类型且处于解锁状态
  */
 bool navigator_is_in_exhibition_mode(const navigator_t* nav);
+
+/** @} */
 
 #endif
