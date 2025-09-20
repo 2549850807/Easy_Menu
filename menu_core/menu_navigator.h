@@ -15,10 +15,10 @@ typedef struct menu_item menu_item_t;
  */
 
 /** @brief 每行显示的最大字符数 */
-#define MAX_DISPLAY_CHAR 16U
+#define MAX_DISPLAY_CHAR 64U
 
 /** @brief 屏幕显示的最大行数 */
-#define MAX_DISPLAY_ITEM 4U
+#define MAX_DISPLAY_ITEM 5U
 
 /** @brief 静态菜单项的最大数量 */
 #define MAX_STATIC_MENU_ITEMS 64
@@ -70,6 +70,8 @@ typedef enum {
     KEY_DOWN,       /**< 下键 */
     KEY_LEFT,       /**< 左键 */
     KEY_RIGHT,      /**< 右键 */
+    KEY_UP_RepeatPress,     /**< 数值改变时长按上键 */
+    KEY_DOWN_RepeatPress,  /**<  数值改变时长按下键 */
     KEY_NONE        /**< 无按键 */
 } key_value_t;
 
@@ -99,6 +101,7 @@ typedef struct {
     void* min_val;                  /**< 最小值指针 */
     void* max_val;                  /**< 最大值指针 */
     void* step_val;                 /**< 步长值指针 */
+    void* RepeatPress_press_val;      /**< 长按步长值指针 */
     data_type_t data_type;          /**< 数据类型 */
     void (*on_change)(void* value); /**< 值改变时的回调函数 */
 } changeable_data_t;

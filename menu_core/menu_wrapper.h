@@ -27,6 +27,8 @@ enum
     DOWN,   /**< 下键 */
     LEFT,   /**< 左键 */
     RIGHT,  /**< 右键 */
+    UP_RepeatPress,   /**<  上键长按 */
+    DOWN_RepeatPress,  /**< 下键长按*/
     NONE,   /**< 无按键 */
 };
 /** @} */
