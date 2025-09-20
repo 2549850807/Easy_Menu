@@ -1,4 +1,4 @@
-#include "menu_navigator.h"
+﻿#include "menu_navigator.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -309,6 +309,44 @@ static void menu_item_increment(menu_item_t* item) {
     
     if (can_increment_value(data->ref, data->step_val, data->max_val, data->data_type)) {
         increment_value_by_type(data->ref, data->step_val, data->data_type);
+        
+        if (data->on_change) {
+            data->on_change(data->ref);
+        }
+    }
+}
+
+/**
+ * @brief 长按递增可变菜单项的值
+ * @param item 菜单项指针
+ * @details 增加CHANGEABLE类型菜单项的值，检查边界并调用回调函数
+ */
+static void menu_item_RepeatPressIncrement(menu_item_t* item) {
+    if (!item || item->type != MENU_TYPE_CHANGEABLE) return;
+    
+    changeable_data_t* data = &item->data.changeable;
+    
+    if (can_increment_value(data->ref, data->RepeatPress_press_val, data->max_val, data->data_type)) {
+        increment_value_by_type(data->ref, data->RepeatPress_press_val, data->data_type);
+        
+        if (data->on_change) {
+            data->on_change(data->ref);
+        }
+    }
+}
+
+/**
+ * @brief 长按递减可变菜单项的值
+ * @param item 菜单项指针
+ * @details 减少CHANGEABLE类型菜单项的值，检查边界并调用回调函数
+ */
+static void menu_item_RepeatPressDecrement(menu_item_t* item) {
+    if (!item || item->type != MENU_TYPE_CHANGEABLE) return;
+    
+    changeable_data_t* data = &item->data.changeable;
+    
+    if (can_decrement_value(data->ref, data->RepeatPress_press_val, data->min_val, data->data_type)) {
+        decrement_value_by_type(data->ref, data->RepeatPress_press_val, data->min_val, data->data_type);
         
         if (data->on_change) {
             data->on_change(data->ref);
@@ -639,6 +677,28 @@ void navigator_handle_input(navigator_t* nav, key_value_t key_value) {
                         nav->first_visible_item = nav->current_menu->saved_first_visible_item;
                     }
                     break;
+            }
+            break;
+
+        case KEY_UP_RepeatPress:
+            switch (current_item->type) {
+                case MENU_TYPE_CHANGEABLE:
+                 if (!current_item->is_locked) {
+                        // 解锁状态：增加值
+                        menu_item_RepeatPressIncrement(current_item);
+                    }
+                break;
+            }
+            break;
+
+        case KEY_DOWN_RepeatPress:
+         switch (current_item->type) {
+                case MENU_TYPE_CHANGEABLE:
+                 if (!current_item->is_locked) {
+                        // 解锁状态：减少值
+                        menu_item_RepeatPressDecrement(current_item);
+                    }
+                break;
             }
             break;
         default:

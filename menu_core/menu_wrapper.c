@@ -1,4 +1,4 @@
-#include "menu_wrapper.h"
+﻿#include "menu_wrapper.h"
 #include "menu_navigator.h"
 #include <string.h>
 #include <stdio.h>
@@ -27,7 +27,7 @@ void menu_delete(void* navigator)
 /**
  * @brief 处理菜单按键输入
  * @param navigator 菜单导航器句柄
- * @param key_value 按键值（UP/DOWN/LEFT/RIGHT/NONE）
+ * @param key_value 按键值（UP/DOWN/LEFT/RIGHT/UP_RepeatPress/DOWN_RepeatPress/NONE）
  * @details 将包装器的按键枚举转换为导航器的按键枚举并处理输入
  */
 void menu_handle_input(void* navigator, uint8_t key_value)
@@ -39,6 +39,8 @@ void menu_handle_input(void* navigator, uint8_t key_value)
     case DOWN: key = KEY_DOWN; break;
     case LEFT: key = KEY_LEFT; break;
     case RIGHT: key = KEY_RIGHT; break;
+    case UP_RepeatPress: key = KEY_UP_RepeatPress; break;
+    case DOWN_RepeatPress: key = KEY_DOWN_RepeatPress; break;
     default: key = KEY_NONE; break;
     }
     navigator_handle_input((navigator_t*)navigator, key);
