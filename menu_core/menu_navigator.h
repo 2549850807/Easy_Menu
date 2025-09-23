@@ -15,7 +15,7 @@ typedef struct menu_item menu_item_t;
  */
 
 /** @brief 每行显示的最大字符数 */
-#define MAX_DISPLAY_CHAR 16U
+#define MAX_DISPLAY_CHAR 24U
 
 /** @brief 屏幕显示的最大行数 */
 #define MAX_DISPLAY_ITEM 4U
@@ -101,6 +101,13 @@ typedef struct {
     void* step_val;                 /**< 步长值指针 */
     data_type_t data_type;          /**< 数据类型 */
     void (*on_change)(void* value); /**< 值改变时的回调函数 */
+	
+	// TODO
+    // --- 新增成员 ---
+    char **string_options;    // 字符串选项数组
+    bool use_string_display;        // 是否使用字符串显示模式
+	key_value_t key_val;
+	
 } changeable_data_t;
 
 /**
