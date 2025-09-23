@@ -245,18 +245,18 @@ static void format_value_by_type(void* ref, data_type_t type, char* str, size_t 
     switch (type) {
         case DATA_TYPE_UINT8:
         case DATA_TYPE_UINT16: snprintf(str, size, "%u", *(uint16_t*)ref); break;
-        case DATA_TYPE_UINT32: snprintf(str, size, "%lu", *(uint32_t*)ref); break;
+        case DATA_TYPE_UINT32: snprintf(str, size, "%u", *(uint32_t*)ref); break;
         case DATA_TYPE_UINT64: snprintf(str, size, "%llu", *(uint64_t*)ref); break;
         case DATA_TYPE_INT8:
         case DATA_TYPE_INT16: snprintf(str, size, "%d", *(int16_t*)ref); break;
-        case DATA_TYPE_INT32: snprintf(str, size, "%ld", *(int32_t*)ref); break;
+        case DATA_TYPE_INT32: snprintf(str, size, "%d", *(int32_t*)ref); break;
         case DATA_TYPE_INT64: snprintf(str, size, "%lld", *(int64_t*)ref); break;
         case DATA_TYPE_FLOAT: {
             int32_t scaled = (int32_t)(*(float*)ref * 1000.0f);
             int32_t integer = scaled / 1000;
             int32_t fraction = scaled % 1000;
             if (fraction < 0) fraction = -fraction;
-            snprintf(str, size, "%ld.%03ld", integer, fraction);
+            snprintf(str, size, "%d.%03d", integer, fraction);
             break;
         }
         case DATA_TYPE_DOUBLE: {
@@ -311,7 +311,10 @@ static void menu_item_increment(menu_item_t* item) {
         increment_value_by_type(data->ref, data->step_val, data->data_type);
         
         if (data->on_change) {
-            data->on_change(data->ref);
+            //data->on_change(data->ref);
+			// TODO
+			item->data.changeable.key_val = KEY_UP;
+			data->on_change((void *)&item->data.changeable);
         }
     }
 }
@@ -330,7 +333,10 @@ static void menu_item_decrement(menu_item_t* item) {
         decrement_value_by_type(data->ref, data->step_val, data->min_val, data->data_type);
         
         if (data->on_change) {
-            data->on_change(data->ref);
+            //data->on_change(data->ref);
+			// TODO
+			item->data.changeable.key_val = KEY_DOWN;
+			data->on_change((void *)&item->data.changeable);
         }
     }
 }
@@ -357,7 +363,30 @@ static void menu_item_get_value_str(const menu_item_t* item, char* value_str, si
             break;
             
         case MENU_TYPE_CHANGEABLE:
-            format_value_by_type(item->data.changeable.ref, item->data.changeable.data_type, value_str, size);
+            //format_value_by_type(item->data.changeable.ref, item->data.changeable.data_type, value_str, size);
+			// TODO
+			// 添加回调函数，可以在回调函数中启用显示给定的字符串作为变量显示
+			if(item->data.changeable.on_change)
+			{
+				item->data.changeable.on_change((void *)&item->data.changeable);
+				
+				if(item->data.changeable.use_string_display == 1)
+				{
+					if(item->data.changeable.string_options)
+					{
+                        char **opt = item->data.changeable.string_options;
+						strncpy(value_str, *opt, size - 1);
+					}
+				}
+				else
+				{
+					format_value_by_type(item->data.changeable.ref, item->data.changeable.data_type, value_str, size);
+				}
+			}
+			else
+			{
+				format_value_by_type(item->data.changeable.ref, item->data.changeable.data_type, value_str, size);
+			}
             break;
             
         default:
