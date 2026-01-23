@@ -10,7 +10,7 @@
 # 项目说明
 
 * 本项目包含了两个部分，菜单系统的底层框架和配套的可视化配置器。
-* 视频介绍与移植教程：
+* 视频介绍与移植教程：[点击此处跳转](https://www.bilibili.com/video/BV1XyzNBNEBQ/?vd_source=5ccd64d3c4d113ad5f6b8b690789ec0f)
 * 编译环境：需要保证编译器支持 C99 。（Keil MDK……）
 
 ![开机界面](assets/开机界面.jpg)
