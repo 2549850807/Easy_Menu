@@ -1,0 +1,396 @@
+[
+  {
+    "name": "Main",
+    "type": "普通页面",
+    "properties": {
+      "变量名": "main_page"
+    },
+    "children": [
+      {
+        "name": "Start page",
+        "type": "展示页面",
+        "properties": {
+          "变量名": "start_page",
+          "周期": "150",
+          "周期回调函数": true,
+          "进入回调函数": true,
+          "退出回调函数": false
+        }
+      },
+      {
+        "name": "Text Page",
+        "type": "普通页面",
+        "properties": {
+          "变量名": "Text_Page"
+        },
+        "children": [
+          {
+            "name": "Welcome",
+            "type": "文本条目",
+            "properties": {
+              "回调函数": false,
+              "回调函数名": ""
+            }
+          },
+          {
+            "name": "Github:",
+            "type": "文本条目",
+            "properties": {
+              "回调函数": true,
+              "回调函数名": ""
+            }
+          },
+          {
+            "name": "https://github.com/",
+            "type": "文本条目",
+            "properties": {
+              "回调函数": false,
+              "回调函数名": ""
+            }
+          },
+          {
+            "name": "2549850807/Easy_Menu",
+            "type": "文本条目",
+            "properties": {
+              "回调函数": false,
+              "回调函数名": ""
+            }
+          }
+        ]
+      },
+      {
+        "name": "Switch_Page",
+        "type": "普通页面",
+        "properties": {
+          "变量名": "Switch_Page"
+        },
+        "children": [
+          {
+            "name": "LED1",
+            "type": "开关条目",
+            "properties": {
+              "初始值": "0",
+              "变量名": "sw1",
+              "回调函数": true,
+              "回调函数名": ""
+            }
+          },
+          {
+            "name": "LED2",
+            "type": "开关条目",
+            "properties": {
+              "初始值": "0",
+              "变量名": "sw2",
+              "回调函数": true,
+              "回调函数名": ""
+            }
+          },
+          {
+            "name": "LED3",
+            "type": "开关条目",
+            "properties": {
+              "初始值": "0",
+              "变量名": "sw3",
+              "回调函数": true,
+              "回调函数名": ""
+            }
+          },
+          {
+            "name": "LED4",
+            "type": "开关条目",
+            "properties": {
+              "初始值": "0",
+              "变量名": "sw4",
+              "回调函数": true,
+              "回调函数名": ""
+            }
+          }
+        ]
+      },
+      {
+        "name": "Data_Page",
+        "type": "普通页面",
+        "properties": {
+          "变量名": "Data_Page"
+        },
+        "children": [
+          {
+            "name": "uint8_t data",
+            "type": "数据条目",
+            "properties": {
+              "初始值": "1",
+              "变量名": "uint8_data",
+              "变量类型": "uint8_val",
+              "回调函数": true,
+              "回调函数名": "",
+              "最大值": "NULL",
+              "最小值": "NULL",
+              "步进": "1"
+            }
+          },
+          {
+            "name": "uint16_t data",
+            "type": "数据条目",
+            "properties": {
+              "初始值": "2",
+              "变量名": "uint16_data",
+              "变量类型": "uint16_val",
+              "回调函数": true,
+              "回调函数名": "",
+              "最大值": "NULL",
+              "最小值": "NULL",
+              "步进": "1"
+            }
+          },
+          {
+            "name": "uint32_t data",
+            "type": "数据条目",
+            "properties": {
+              "初始值": "3",
+              "变量名": "uint32_data",
+              "变量类型": "uint32_val",
+              "回调函数": true,
+              "回调函数名": "",
+              "最大值": "NULL",
+              "最小值": "NULL",
+              "步进": "1"
+            }
+          },
+          {
+            "name": "int8_t data",
+            "type": "数据条目",
+            "properties": {
+              "初始值": "4",
+              "变量名": "int8_data",
+              "变量类型": "int8_val",
+              "回调函数": true,
+              "回调函数名": "",
+              "最大值": "NULL",
+              "最小值": "NULL",
+              "步进": "1"
+            }
+          },
+          {
+            "name": "int16_t data",
+            "type": "数据条目",
+            "properties": {
+              "初始值": "5",
+              "变量名": "int16_data",
+              "变量类型": "int16_val",
+              "回调函数": true,
+              "回调函数名": "",
+              "最大值": "NULL",
+              "最小值": "NULL",
+              "步进": "1"
+            }
+          },
+          {
+            "name": "int32_t data",
+            "type": "数据条目",
+            "properties": {
+              "初始值": "6",
+              "变量名": "int32_data",
+              "变量类型": "int32_val",
+              "回调函数": true,
+              "回调函数名": "",
+              "最大值": "NULL",
+              "最小值": "NULL",
+              "步进": "1"
+            }
+          },
+          {
+            "name": "float data",
+            "type": "数据条目",
+            "properties": {
+              "初始值": "7",
+              "变量名": "float_data",
+              "变量类型": "float_val",
+              "回调函数": true,
+              "回调函数名": "",
+              "最大值": "10",
+              "最小值": "-10",
+              "步进": "0.1"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Enum_Page",
+        "type": "普通页面",
+        "properties": {
+          "变量名": "Enum_Page"
+        },
+        "children": [
+          {
+            "name": "Mode",
+            "type": "枚举条目",
+            "properties": {
+              "回调函数": true,
+              "回调函数名": "",
+              "枚举字符串": [
+                "Static",
+                "Slow",
+                "Fast"
+              ],
+              "枚举数量": "3"
+            }
+          },
+          {
+            "name": "State",
+            "type": "枚举条目",
+            "properties": {
+              "回调函数": false,
+              "回调函数名": "",
+              "枚举字符串": [
+                "Run",
+                "Stop"
+              ],
+              "枚举数量": "2"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Show_Page",
+        "type": "普通页面",
+        "properties": {
+          "变量名": "User_Show_Page"
+        },
+        "children": [
+          {
+            "name": "Hour",
+            "type": "展示条目",
+            "properties": {
+              "初始值": "23",
+              "变量名": "hours",
+              "变量类型": "uint8_val",
+              "周期": "10",
+              "回调函数": true,
+              "回调函数名": "Hour_Item_Callback"
+            }
+          },
+          {
+            "name": "Minute",
+            "type": "展示条目",
+            "properties": {
+              "初始值": "59",
+              "变量名": "minutes",
+              "变量类型": "uint8_val",
+              "周期": "10",
+              "回调函数": true,
+              "回调函数名": "Minute_Item_Callback"
+            }
+          },
+          {
+            "name": "Second",
+            "type": "展示条目",
+            "properties": {
+              "初始值": "55",
+              "变量名": "seconds",
+              "变量类型": "uint8_val",
+              "周期": "10",
+              "回调函数": true,
+              "回调函数名": "Second_Item_Callback"
+            }
+          },
+          {
+            "name": "Millisecond",
+            "type": "展示条目",
+            "properties": {
+              "初始值": "0",
+              "变量名": "millisecond",
+              "变量类型": "uint8_val",
+              "周期": "10",
+              "回调函数": true,
+              "回调函数名": "Millisecond_Item_Callback"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Goto_Page",
+        "type": "普通页面",
+        "properties": {
+          "变量名": "Goto_Page"
+        },
+        "children": [
+          {
+            "name": "Goto 1 Page",
+            "type": "普通页面",
+            "properties": {
+              "变量名": "goto_1_page"
+            },
+            "children": [
+              {
+                "name": "Goto 11 Page",
+                "type": "普通页面",
+                "properties": {
+                  "变量名": "goto_11_page"
+                },
+                "children": [
+                  {
+                    "name": "Goto 111 Page",
+                    "type": "普通页面",
+                    "properties": {
+                      "变量名": "goto_111_page"
+                    },
+                    "children": [
+                      {
+                        "name": "Hello World!!!",
+                        "type": "文本条目",
+                        "properties": {
+                          "回调函数": false,
+                          "回调函数名": ""
+                        }
+                      },
+                      {
+                        "name": "Home",
+                        "type": "跳转条目",
+                        "properties": {
+                          "目标页面": "main_page"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "Goto Page 2",
+            "type": "跳转条目",
+            "properties": {
+              "回调函数": false,
+              "目标页面": "NULL"
+            }
+          },
+          {
+            "name": "Goto 3 Page",
+            "type": "普通页面",
+            "properties": {
+              "变量名": "goto_3_page"
+            },
+            "children": [
+              {
+                "name": "TEST",
+                "type": "文本条目",
+                "properties": {
+                  "回调函数": false,
+                  "回调函数名": ""
+                }
+              }
+            ]
+          },
+          {
+            "name": "Goto Page 4",
+            "type": "跳转条目",
+            "properties": {
+              "回调函数": false,
+              "目标页面": "NULL"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
