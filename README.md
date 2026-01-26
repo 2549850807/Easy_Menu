@@ -216,7 +216,7 @@ void Easy_Menu_Init(void (*Display_Char)(unsigned short int x, unsigned short in
 void Easy_Menu_Display(unsigned int Easy_Menu_Tick);
 
 /**
-    * @brief  刷新当前页面的内容（）
+    * @brief  刷新当前页面的内容
     * @param  Display_Char: ASCII 字符显示函数
     * @notes  仅对普通页面有效，用于在回调函数中修改开关、数据条目的值时，调用这个函数可以立刻刷新
   */
@@ -236,7 +236,7 @@ void Easy_Menu_Input(Easy_Menu_Input_TYPE user_input);
 void Easy_Menu_Get_Current_Page_Text(char* str);
 
 /**
-    * @brief  刷新当前页面的内容（）
+    * @brief  跳转到目标页面
     * @param  target_page: 目标页面的变量 
     * @notes  使用时需要以这样的形式使用：PAGE(target_page)
   */
