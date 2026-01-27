@@ -95,10 +95,10 @@ void main(void) {
     
     while(1) {
         // 4. 处理按键输入
-        uint8_t key = Get_Key_Input(); // 用户实现的按键获取函数
-        Easy_Menu_Input(navigator, key);
+        Easy_Menu_Input_TYPE key = Get_Key_Input(); // 用户实现的按键获取函数
+        Easy_Menu_Input(key);
         
-        // 5. 在循环中调用菜单系统显示，并传入系统 tick（如果不使用展示页面/条目可以直接给 0）
+        // 5. 在循环中调用菜单系统显示，并传入系统 tick（最好是 1ms 自增一次，如果不使用展示页面/条目可以直接给 0）
         static uint32_t tick = 0;
         Easy_Menu_Display(tick++);
         
