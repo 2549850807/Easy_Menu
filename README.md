@@ -19,7 +19,7 @@
 
 ## 快速开始
 
-1. 下载界面右侧发行版中的 **Easy_Menu v3.0.0.zip** 并解压。
+1. 下载界面右侧发行版中的 **Easy_Menu v3.1.0.zip** 并解压。
 2. 将 **Menu_Core** 中的所有文件(除了`.json`)都添加进工程中。
 3. 根据屏幕和字符大小修改 `Easy_Menu.h` 中的宏定义配置
 
@@ -47,7 +47,7 @@ void (*Display_Char)(unsigned short int x, unsigned short int y, char ch, unsign
     * @param  x: 起点 X 轴坐标
     * @param  line: 对应行（对于不等分的行，可以自行用 switch 来设定每行对应的 Y 轴坐标）
     * @param  ch: 需要显示的目标字符
-    * @param  reverse_flag: 反色显示标志位（不需要反色显示，可以忽视）
+    * @param  reverse_flag: 反色显示标志位（不需要反色显示，可以忽视），0-正常，1-反色
   */
 void (*Display_Char_Line)(unsigned short int x, unsigned char line, char ch, unsigned char reverse_flag);
 ```
@@ -62,7 +62,7 @@ void (*Display_Char_Line)(unsigned short int x, unsigned char line, char ch, uns
     * @param  Display_Char_Line: ASCII 字符显示函数（Y 轴以行为单位）
     * @param  Display_Chinese_Char: 中文 字符显示函数
     * @param  Display_Chinese_Char_Line: 中文字符显示函数（Y 轴以行为单位）
-    * @notes  Char 相关的显示函数，至少有一个绑定系统才能显示，Chinese 相关的中文显示函数为可选项
+    * @notes  ASCII 相关的显示函数，至少绑定一个，系统才能显示，Chinese 相关的中文显示函数为可选项
   */
 void Easy_Menu_Init(Display_Char, Display_Char_Line, NULL, NULL);
 ```
