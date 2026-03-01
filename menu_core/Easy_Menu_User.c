@@ -10,10 +10,10 @@
 
 /* ================================================================= 占位变量 ================================================================= */
 struct {
-    unsigned char sw1;
-    unsigned char sw2;
-    unsigned char sw3;
-    unsigned char sw4;
+    unsigned char LED1__data;
+    unsigned char LED2__data;
+    unsigned char LED3__data;
+    unsigned char LED4__data;
     unsigned char uint8_data;
     unsigned short int uint16_data;
     unsigned int uint32_data;
@@ -26,10 +26,10 @@ struct {
     unsigned char seconds;
     unsigned char millisecond;
 } Easy_Menu_Ui_Data = {
-    .sw1 = 0,
-    .sw2 = 0,
-    .sw3 = 0,
-    .sw4 = 0,
+    .LED1__data = 0,
+    .LED2__data = 0,
+    .LED3__data = 0,
+    .LED4__data = 0,
     .uint8_data = 1,
     .uint16_data = 2,
     .uint32_data = 3,
@@ -44,159 +44,159 @@ struct {
 };
 /* ============================================================== 页面、条目定义 ============================================================== */    
 Ordinary_Page main_page;
-    Goto_Item main_page_1_item;
-    Goto_Item main_page_2_item;
-    Goto_Item main_page_3_item;
-    Goto_Item main_page_4_item;
-    Goto_Item main_page_5_item;
-    Goto_Item main_page_6_item;
-    Goto_Item main_page_7_item;
+    Goto_Item goto__start_page;
+    Goto_Item goto__text_page;
+    Goto_Item goto__switch_page;
+    Goto_Item goto__data_page;
+    Goto_Item goto__enum_page;
+    Goto_Item goto__user_show_page;
+    Goto_Item goto__goto_page;
     Show_Page start_page;
-    Ordinary_Page Text_Page;
-        Text_Item Text_Page_1_item;
-        Text_Item Text_Page_2_item;
-        Text_Item Text_Page_3_item;
-        Text_Item Text_Page_4_item;
-    Ordinary_Page Switch_Page;
-        Switch_Item Switch_Page_1_item;
-        Switch_Item Switch_Page_2_item;
-        Switch_Item Switch_Page_3_item;
-        Switch_Item Switch_Page_4_item;
-    Ordinary_Page Data_Page;
-        Data_Item Data_Page_1_item;
-        Data_Item Data_Page_2_item;
-        Data_Item Data_Page_3_item;
-        Data_Item Data_Page_4_item;
-        Data_Item Data_Page_5_item;
-        Data_Item Data_Page_6_item;
-        Data_Item Data_Page_7_item;
-    Ordinary_Page Enum_Page;
-        Enum_Item Enum_Page_1_item;
-        Enum_Item Enum_Page_2_item;
-    Ordinary_Page User_Show_Page;
-        Show_Item User_Show_Page_1_item;
-        Show_Item User_Show_Page_2_item;
-        Show_Item User_Show_Page_3_item;
-        Show_Item User_Show_Page_4_item;
-    Ordinary_Page Goto_Page;
-        Goto_Item Goto_Page_1_item;
-        Goto_Item Goto_Page_2_item;
-        Goto_Item Goto_Page_3_item;
-        Goto_Item Goto_Page_4_item;
+    Ordinary_Page text_page;
+        Text_Item text_page__1__item;
+        Text_Item text_page__2__item;
+        Text_Item text_page__3__item;
+        Text_Item text_page__4__item;
+    Ordinary_Page switch_page;
+        Switch_Item switch_page__1__item;
+        Switch_Item switch_page__2__item;
+        Switch_Item switch_page__3__item;
+        Switch_Item switch_page__4__item;
+    Ordinary_Page data_page;
+        Data_Item data_page__1__item;
+        Data_Item data_page__2__item;
+        Data_Item data_page__3__item;
+        Data_Item data_page__4__item;
+        Data_Item data_page__5__item;
+        Data_Item data_page__6__item;
+        Data_Item data_page__7__item;
+    Ordinary_Page enum_page;
+        Enum_Item mode;
+        Enum_Item state;
+    Ordinary_Page user_show_page;
+        Show_Item user_show_page__1__item;
+        Show_Item user_show_page__2__item;
+        Show_Item user_show_page__3__item;
+        Show_Item user_show_page__4__item;
+    Ordinary_Page goto_page;
+        Goto_Item goto__goto_1_page;
+        Goto_Item goto__goto page 2;
+        Goto_Item goto__goto_3_page;
+        Goto_Item goto__goto page 4;
         Ordinary_Page goto_1_page;
-            Goto_Item goto_1_page_1_item;
+            Goto_Item goto__goto_11_page;
             Ordinary_Page goto_11_page;
-                Goto_Item goto_11_page_1_item;
+                Goto_Item goto__goto_111_page;
                 Ordinary_Page goto_111_page;
-                    Text_Item goto_111_page_1_item;
-                    Goto_Item goto_111_page_2_item;
+                    Text_Item goto_111_page__1__item;
+                    Goto_Item goto__goto_111_page__2__item;
         Ordinary_Page goto_3_page;
-            Text_Item goto_3_page_1_item;
+            Text_Item test;
 /* ================================================================= 枚举列表 ================================================================= */
-char *Enum_Page_1_item_enum_str[3] = {
+char *mode_enum_str[3] = {
     "Static",
     "Slow",
     "Fast"
 };
 
-char *Enum_Page_2_item_enum_str[2] = {
+char *state_enum_str[2] = {
     "Run",
     "Stop"
 };
 
 /* ============================================================== 回调函数（条目） ============================================================ */
-void Text_Page_2_Item_Callback(char *str)
+void Text_Page__2__Item_Callback(char *str)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Switch_Page_1_Item_Callback(unsigned char data)
+void Switch_Page__1__Item_Callback(unsigned char data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Switch_Page_2_Item_Callback(unsigned char data)
+void Switch_Page__2__Item_Callback(unsigned char data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Switch_Page_3_Item_Callback(unsigned char data)
+void Switch_Page__3__Item_Callback(unsigned char data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Switch_Page_4_Item_Callback(unsigned char data)
+void Switch_Page__4__Item_Callback(unsigned char data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Data_Page_1_Item_Callback(void *data) // *((unsigned char*)data)
+void Data_Page__1__Item_Callback(void *data) // *((unsigned char*)data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Data_Page_2_Item_Callback(void *data) // *((unsigned short int*)data)
+void Data_Page__2__Item_Callback(void *data) // *((unsigned short int*)data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Data_Page_3_Item_Callback(void *data) // *((unsigned int*)data)
+void Data_Page__3__Item_Callback(void *data) // *((unsigned int*)data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Data_Page_4_Item_Callback(void *data) // *((signed char*)data)
+void Data_Page__4__Item_Callback(void *data) // *((signed char*)data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Data_Page_5_Item_Callback(void *data) // *((signed short int*)data)
+void Data_Page__5__Item_Callback(void *data) // *((signed short int*)data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Data_Page_6_Item_Callback(void *data) // *((signed int*)data)
+void Data_Page__6__Item_Callback(void *data) // *((signed int*)data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Data_Page_7_Item_Callback(void *data) // *((float*)data)
+void Data_Page__7__Item_Callback(void *data) // *((float*)data)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Enum_Page_1_Item_Callback(char *str)
+void Mode_Callback(char *str)
 {
     /* USER CODE BEGIN */
 
     /* USER CODE END */
 }
 
-void Hour_Item_Callback(void)
+void User_Show_Page__1__Item_Callback(void)
 {
     /* USER CODE BEGIN */
     if(Easy_Menu_Ui_Data.hours >= 24)
@@ -206,7 +206,7 @@ void Hour_Item_Callback(void)
     /* USER CODE END */
 }
 
-void Minute_Item_Callback(void)
+void User_Show_Page__2__Item_Callback(void)
 {
     /* USER CODE BEGIN */
     if(Easy_Menu_Ui_Data.minutes >= 60) 
@@ -217,7 +217,7 @@ void Minute_Item_Callback(void)
     /* USER CODE END */
 }
 
-void Second_Item_Callback(void)
+void User_Show_Page__3__Item_Callback(void)
 {
     /* USER CODE BEGIN */
     if(Easy_Menu_Ui_Data.seconds >= 60) 
@@ -228,7 +228,7 @@ void Second_Item_Callback(void)
     /* USER CODE END */
 }
 
-void Millisecond_Item_Callback(void)
+void User_Show_Page__4__Item_Callback(void)
 {
     /* USER CODE BEGIN */
     static unsigned int Show_Page_4_Item_Last_Tick = 0;
@@ -331,127 +331,139 @@ void Start_Page_Period_Callback(void* temp, Easy_Menu_Input_TYPE user_input)
 
 /* =========================================================== 设置列表（普通页面） =========================================================== */
 Item *main_page_items[7] = {
-    ITEM(main_page_1_item),
-    ITEM(main_page_2_item),
-    ITEM(main_page_3_item),
-    ITEM(main_page_4_item),
-    ITEM(main_page_5_item),
-    ITEM(main_page_6_item),
-    ITEM(main_page_7_item)
+    ITEM(goto__start_page),
+    ITEM(goto__text_page),
+    ITEM(goto__switch_page),
+    ITEM(goto__data_page),
+    ITEM(goto__enum_page),
+    ITEM(goto__user_show_page),
+    ITEM(goto__goto_page)
 };
 
-Item *Text_Page_items[4] = {
-    ITEM(Text_Page_1_item),
-    ITEM(Text_Page_2_item),
-    ITEM(Text_Page_3_item),
-    ITEM(Text_Page_4_item)
+Item *text_page_items[4] = {
+    ITEM(text_page__1__item),
+    ITEM(text_page__2__item),
+    ITEM(text_page__3__item),
+    ITEM(text_page__4__item)
 };
 
-Item *Switch_Page_items[4] = {
-    ITEM(Switch_Page_1_item),
-    ITEM(Switch_Page_2_item),
-    ITEM(Switch_Page_3_item),
-    ITEM(Switch_Page_4_item)
+Item *switch_page_items[4] = {
+    ITEM(switch_page__1__item),
+    ITEM(switch_page__2__item),
+    ITEM(switch_page__3__item),
+    ITEM(switch_page__4__item)
 };
 
-Item *Data_Page_items[7] = {
-    ITEM(Data_Page_1_item),
-    ITEM(Data_Page_2_item),
-    ITEM(Data_Page_3_item),
-    ITEM(Data_Page_4_item),
-    ITEM(Data_Page_5_item),
-    ITEM(Data_Page_6_item),
-    ITEM(Data_Page_7_item)
+Item *data_page_items[7] = {
+    ITEM(data_page__1__item),
+    ITEM(data_page__2__item),
+    ITEM(data_page__3__item),
+    ITEM(data_page__4__item),
+    ITEM(data_page__5__item),
+    ITEM(data_page__6__item),
+    ITEM(data_page__7__item)
 };
 
-Item *Enum_Page_items[2] = {
-    ITEM(Enum_Page_1_item),
-    ITEM(Enum_Page_2_item)
+Item *enum_page_items[2] = {
+    ITEM(mode),
+    ITEM(state)
 };
 
-Item *User_Show_Page_items[4] = {
-    ITEM(User_Show_Page_1_item),
-    ITEM(User_Show_Page_2_item),
-    ITEM(User_Show_Page_3_item),
-    ITEM(User_Show_Page_4_item)
+Item *user_show_page_items[4] = {
+    ITEM(user_show_page__1__item),
+    ITEM(user_show_page__2__item),
+    ITEM(user_show_page__3__item),
+    ITEM(user_show_page__4__item)
 };
 
-Item *Goto_Page_items[4] = {
-    ITEM(Goto_Page_1_item),
-    ITEM(Goto_Page_2_item),
-    ITEM(Goto_Page_3_item),
-    ITEM(Goto_Page_4_item)
+Item *goto_page_items[4] = {
+    ITEM(goto__goto_1_page),
+    ITEM(goto__goto page 2),
+    ITEM(goto__goto_3_page),
+    ITEM(goto__goto page 4)
 };
 
 Item *goto_1_page_items[1] = {
-    ITEM(goto_1_page_1_item)
+    ITEM(goto__goto_11_page)
 };
 
 Item *goto_11_page_items[1] = {
-    ITEM(goto_11_page_1_item)
+    ITEM(goto__goto_111_page)
 };
 
 Item *goto_111_page_items[2] = {
-    ITEM(goto_111_page_1_item),
-    ITEM(goto_111_page_2_item)
+    ITEM(goto_111_page__1__item),
+    ITEM(goto__goto_111_page__2__item)
 };
 
 Item *goto_3_page_items[1] = {
-    ITEM(goto_3_page_1_item)
+    ITEM(test)
 };
 
 /* ================================================================ 系统初始化 ================================================================ */
 void Easy_Menu_Ui_Init(void)
 {
+
     Ordinary_Page_Init(NULL, PAGE(main_page), "Main", main_page_items, 7);
-        Goto_Item_Init(PAGE(main_page), ITEM(main_page_1_item), "Start page", PAGE(start_page));
-        Goto_Item_Init(PAGE(main_page), ITEM(main_page_2_item), "Text Page", PAGE(Text_Page));
-        Goto_Item_Init(PAGE(main_page), ITEM(main_page_3_item), "Switch_Page", PAGE(Switch_Page));
-        Goto_Item_Init(PAGE(main_page), ITEM(main_page_4_item), "Data_Page", PAGE(Data_Page));
-        Goto_Item_Init(PAGE(main_page), ITEM(main_page_5_item), "Enum_Page", PAGE(Enum_Page));
-        Goto_Item_Init(PAGE(main_page), ITEM(main_page_6_item), "Show_Page", PAGE(User_Show_Page));
-        Goto_Item_Init(PAGE(main_page), ITEM(main_page_7_item), "Goto_Page", PAGE(Goto_Page));
+        Goto_Item_Init(PAGE(main_page), ITEM(goto__start_page), "Start page", PAGE(start_page));
+        Goto_Item_Init(PAGE(main_page), ITEM(goto__text_page), "Text Page", PAGE(text_page));
+        Goto_Item_Init(PAGE(main_page), ITEM(goto__switch_page), "Switch_Page", PAGE(switch_page));
+        Goto_Item_Init(PAGE(main_page), ITEM(goto__data_page), "Data_Page", PAGE(data_page));
+        Goto_Item_Init(PAGE(main_page), ITEM(goto__enum_page), "Enum_Page", PAGE(enum_page));
+        Goto_Item_Init(PAGE(main_page), ITEM(goto__user_show_page), "Show_Page", PAGE(user_show_page));
+        Goto_Item_Init(PAGE(main_page), ITEM(goto__goto_page), "Goto_Page", PAGE(goto_page));
+
     Show_Page_Init(PAGE(main_page), PAGE(start_page), "Start page", 150, Start_Page_Enter_Callback, Start_Page_Period_Callback, NULL);
-    Ordinary_Page_Init(PAGE(main_page), PAGE(Text_Page), "Text Page", Text_Page_items, 4);
-        Text_Item_Init(PAGE(Text_Page), ITEM(Text_Page_1_item), "Welcome", NULL);
-        Text_Item_Init(PAGE(Text_Page), ITEM(Text_Page_2_item), "Github:", Text_Page_2_Item_Callback);
-        Text_Item_Init(PAGE(Text_Page), ITEM(Text_Page_3_item), "https://github.com/", NULL);
-        Text_Item_Init(PAGE(Text_Page), ITEM(Text_Page_4_item), "2549850807/Easy_Menu", NULL);
-    Ordinary_Page_Init(PAGE(main_page), PAGE(Switch_Page), "Switch_Page", Switch_Page_items, 4);
-        Switch_Item_Init(PAGE(Switch_Page), ITEM(Switch_Page_1_item), "LED1", &Easy_Menu_Ui_Data.sw1, Switch_Page_1_Item_Callback);
-        Switch_Item_Init(PAGE(Switch_Page), ITEM(Switch_Page_2_item), "LED2", &Easy_Menu_Ui_Data.sw2, Switch_Page_2_Item_Callback);
-        Switch_Item_Init(PAGE(Switch_Page), ITEM(Switch_Page_3_item), "LED3", &Easy_Menu_Ui_Data.sw3, Switch_Page_3_Item_Callback);
-        Switch_Item_Init(PAGE(Switch_Page), ITEM(Switch_Page_4_item), "LED4", &Easy_Menu_Ui_Data.sw4, Switch_Page_4_Item_Callback);
-    Ordinary_Page_Init(PAGE(main_page), PAGE(Data_Page), "Data_Page", Data_Page_items, 7);
-        Data_Item_Init(PAGE(Data_Page), ITEM(Data_Page_1_item), "uint8_t data", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.uint8_data, UNSIGNED_CHAR_VAL(1), 1, UNSIGNED_CHAR_VAL(0), 0, UNSIGNED_CHAR_VAL(0), 0, Data_Page_1_Item_Callback);
-        Data_Item_Init(PAGE(Data_Page), ITEM(Data_Page_2_item), "uint16_t data", UNSIGNED_SHORT_INT, &Easy_Menu_Ui_Data.uint16_data, UNSIGNED_SHORT_INT_VAL(1), 1, UNSIGNED_SHORT_INT_VAL(0), 0, UNSIGNED_SHORT_INT_VAL(0), 0, Data_Page_2_Item_Callback);
-        Data_Item_Init(PAGE(Data_Page), ITEM(Data_Page_3_item), "uint32_t data", UNSIGNED_INT, &Easy_Menu_Ui_Data.uint32_data, UNSIGNED_INT_VAL(1), 1, UNSIGNED_INT_VAL(0), 0, UNSIGNED_INT_VAL(0), 0, Data_Page_3_Item_Callback);
-        Data_Item_Init(PAGE(Data_Page), ITEM(Data_Page_4_item), "int8_t data", SIGNED_CHAR, &Easy_Menu_Ui_Data.int8_data, SIGNED_CHAR_VAL(1), 1, SIGNED_CHAR_VAL(0), 0, SIGNED_CHAR_VAL(0), 0, Data_Page_4_Item_Callback);
-        Data_Item_Init(PAGE(Data_Page), ITEM(Data_Page_5_item), "int16_t data", SIGNED_SHORT_INT, &Easy_Menu_Ui_Data.int16_data, SIGNED_SHORT_INT_VAL(1), 1, SIGNED_SHORT_INT_VAL(0), 0, SIGNED_SHORT_INT_VAL(0), 0, Data_Page_5_Item_Callback);
-        Data_Item_Init(PAGE(Data_Page), ITEM(Data_Page_6_item), "int32_t data", SIGNED_INT, &Easy_Menu_Ui_Data.int32_data, SIGNED_INT_VAL(1), 1, SIGNED_INT_VAL(0), 0, SIGNED_INT_VAL(0), 0, Data_Page_6_Item_Callback);
-        Data_Item_Init(PAGE(Data_Page), ITEM(Data_Page_7_item), "float data", FLOAT, &Easy_Menu_Ui_Data.float_data, FLOAT_VAL(0.1), 1, FLOAT_VAL(-10), 1, FLOAT_VAL(10), 1, Data_Page_7_Item_Callback);
-    Ordinary_Page_Init(PAGE(main_page), PAGE(Enum_Page), "Enum_Page", Enum_Page_items, 2);
-        Enum_Item_Init(PAGE(Enum_Page), ITEM(Enum_Page_1_item), "Mode", Enum_Page_1_item_enum_str, 3, Enum_Page_1_Item_Callback);
-        Enum_Item_Init(PAGE(Enum_Page), ITEM(Enum_Page_2_item), "State", Enum_Page_2_item_enum_str, 2, NULL);
-    Ordinary_Page_Init(PAGE(main_page), PAGE(User_Show_Page), "Show_Page", User_Show_Page_items, 4);
-        Show_Item_Init(PAGE(User_Show_Page), ITEM(User_Show_Page_1_item), "Hour", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.hours, 10, Hour_Item_Callback);
-        Show_Item_Init(PAGE(User_Show_Page), ITEM(User_Show_Page_2_item), "Minute", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.minutes, 10, Minute_Item_Callback);
-        Show_Item_Init(PAGE(User_Show_Page), ITEM(User_Show_Page_3_item), "Second", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.seconds, 10, Second_Item_Callback);
-        Show_Item_Init(PAGE(User_Show_Page), ITEM(User_Show_Page_4_item), "Millisecond", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.millisecond, 10, Millisecond_Item_Callback);
-    Ordinary_Page_Init(PAGE(main_page), PAGE(Goto_Page), "Goto_Page", Goto_Page_items, 4);
-        Goto_Item_Init(PAGE(Goto_Page), ITEM(Goto_Page_1_item), "Goto 1 Page", PAGE(goto_1_page));
-        Goto_Item_Init(PAGE(Goto_Page), ITEM(Goto_Page_2_item), "Goto Page 2", NULL);
-        Goto_Item_Init(PAGE(Goto_Page), ITEM(Goto_Page_3_item), "Goto 3 Page", PAGE(goto_3_page));
-        Goto_Item_Init(PAGE(Goto_Page), ITEM(Goto_Page_4_item), "Goto Page 4", NULL);
-    Ordinary_Page_Init(PAGE(Goto_Page), PAGE(goto_1_page), "Goto 1 Page", goto_1_page_items, 1);
-        Goto_Item_Init(PAGE(goto_1_page), ITEM(goto_1_page_1_item), "Goto 11 Page", PAGE(goto_11_page));
+
+    Ordinary_Page_Init(PAGE(main_page), PAGE(text_page), "Text Page", text_page_items, 4);
+        Text_Item_Init(PAGE(text_page), ITEM(text_page__1__item), "Welcome", NULL);
+        Text_Item_Init(PAGE(text_page), ITEM(text_page__2__item), "Github:", Text_Page__2__Item_Callback);
+        Text_Item_Init(PAGE(text_page), ITEM(text_page__3__item), "https://github.com/", NULL);
+        Text_Item_Init(PAGE(text_page), ITEM(text_page__4__item), "2549850807/Easy_Menu", NULL);
+
+    Ordinary_Page_Init(PAGE(main_page), PAGE(switch_page), "Switch_Page", switch_page_items, 4);
+        Switch_Item_Init(PAGE(switch_page), ITEM(switch_page__1__item), "LED1", &Easy_Menu_Ui_Data.switch_page__1__item, Switch_Page__1__Item_Callback);
+        Switch_Item_Init(PAGE(switch_page), ITEM(switch_page__2__item), "LED2", &Easy_Menu_Ui_Data.switch_page__2__item, Switch_Page__2__Item_Callback);
+        Switch_Item_Init(PAGE(switch_page), ITEM(switch_page__3__item), "LED3", &Easy_Menu_Ui_Data.switch_page__3__item, Switch_Page__3__Item_Callback);
+        Switch_Item_Init(PAGE(switch_page), ITEM(switch_page__4__item), "LED4", &Easy_Menu_Ui_Data.switch_page__4__item, Switch_Page__4__Item_Callback);
+
+    Ordinary_Page_Init(PAGE(main_page), PAGE(data_page), "Data_Page", data_page_items, 7);
+        Data_Item_Init(PAGE(data_page), ITEM(data_page__1__item), "uint8_t data", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.data_page__1__item, UNSIGNED_CHAR_VAL(1), 1, UNSIGNED_CHAR_VAL(0), 0, UNSIGNED_CHAR_VAL(0), 0, Data_Page__1__Item_Callback);
+        Data_Item_Init(PAGE(data_page), ITEM(data_page__2__item), "uint16_t data", UNSIGNED_SHORT_INT, &Easy_Menu_Ui_Data.data_page__2__item, UNSIGNED_SHORT_INT_VAL(1), 1, UNSIGNED_SHORT_INT_VAL(0), 0, UNSIGNED_SHORT_INT_VAL(0), 0, Data_Page__2__Item_Callback);
+        Data_Item_Init(PAGE(data_page), ITEM(data_page__3__item), "uint32_t data", UNSIGNED_INT, &Easy_Menu_Ui_Data.data_page__3__item, UNSIGNED_INT_VAL(1), 1, UNSIGNED_INT_VAL(0), 0, UNSIGNED_INT_VAL(0), 0, Data_Page__3__Item_Callback);
+        Data_Item_Init(PAGE(data_page), ITEM(data_page__4__item), "int8_t data", SIGNED_CHAR, &Easy_Menu_Ui_Data.data_page__4__item, SIGNED_CHAR_VAL(1), 1, SIGNED_CHAR_VAL(0), 0, SIGNED_CHAR_VAL(0), 0, Data_Page__4__Item_Callback);
+        Data_Item_Init(PAGE(data_page), ITEM(data_page__5__item), "int16_t data", SIGNED_SHORT_INT, &Easy_Menu_Ui_Data.data_page__5__item, SIGNED_SHORT_INT_VAL(1), 1, SIGNED_SHORT_INT_VAL(0), 0, SIGNED_SHORT_INT_VAL(0), 0, Data_Page__5__Item_Callback);
+        Data_Item_Init(PAGE(data_page), ITEM(data_page__6__item), "int32_t data", SIGNED_INT, &Easy_Menu_Ui_Data.data_page__6__item, SIGNED_INT_VAL(1), 1, SIGNED_INT_VAL(0), 0, SIGNED_INT_VAL(0), 0, Data_Page__6__Item_Callback);
+        Data_Item_Init(PAGE(data_page), ITEM(data_page__7__item), "float data", FLOAT, &Easy_Menu_Ui_Data.data_page__7__item, FLOAT_VAL(0.1), 1, FLOAT_VAL(-10), 1, FLOAT_VAL(10), 1, Data_Page__7__Item_Callback);
+
+    Ordinary_Page_Init(PAGE(main_page), PAGE(enum_page), "Enum_Page", enum_page_items, 2);
+        Enum_Item_Init(PAGE(enum_page), ITEM(mode), "Mode", mode_enum_str, 3, Mode_Callback);
+        Enum_Item_Init(PAGE(enum_page), ITEM(state), "State", state_enum_str, 2, NULL);
+
+    Ordinary_Page_Init(PAGE(main_page), PAGE(user_show_page), "Show_Page", user_show_page_items, 4);
+        Show_Item_Init(PAGE(user_show_page), ITEM(user_show_page__1__item), "Hour", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.user_show_page__1__item, 10, User_Show_Page__1__Item_Callback);
+        Show_Item_Init(PAGE(user_show_page), ITEM(user_show_page__2__item), "Minute", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.user_show_page__2__item, 10, User_Show_Page__2__Item_Callback);
+        Show_Item_Init(PAGE(user_show_page), ITEM(user_show_page__3__item), "Second", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.user_show_page__3__item, 10, User_Show_Page__3__Item_Callback);
+        Show_Item_Init(PAGE(user_show_page), ITEM(user_show_page__4__item), "Millisecond", UNSIGNED_CHAR, &Easy_Menu_Ui_Data.user_show_page__4__item, 10, User_Show_Page__4__Item_Callback);
+
+    Ordinary_Page_Init(PAGE(main_page), PAGE(goto_page), "Goto_Page", goto_page_items, 4);
+        Goto_Item_Init(PAGE(goto_page), ITEM(goto__goto_1_page), "Goto 1 Page", PAGE(goto_1_page));
+        Goto_Item_Init(PAGE(goto_page), ITEM(goto__goto page 2), "Goto Page 2", NULL);
+        Goto_Item_Init(PAGE(goto_page), ITEM(goto__goto_3_page), "Goto 3 Page", PAGE(goto_3_page));
+        Goto_Item_Init(PAGE(goto_page), ITEM(goto__goto page 4), "Goto Page 4", NULL);
+
+    Ordinary_Page_Init(PAGE(goto_page), PAGE(goto_1_page), "Goto 1 Page", goto_1_page_items, 1);
+        Goto_Item_Init(PAGE(goto_1_page), ITEM(goto__goto_11_page), "Goto 11 Page", PAGE(goto_11_page));
+
     Ordinary_Page_Init(PAGE(goto_1_page), PAGE(goto_11_page), "Goto 11 Page", goto_11_page_items, 1);
-        Goto_Item_Init(PAGE(goto_11_page), ITEM(goto_11_page_1_item), "Goto 111 Page", PAGE(goto_111_page));
+        Goto_Item_Init(PAGE(goto_11_page), ITEM(goto__goto_111_page), "Goto 111 Page", PAGE(goto_111_page));
+
     Ordinary_Page_Init(PAGE(goto_11_page), PAGE(goto_111_page), "Goto 111 Page", goto_111_page_items, 2);
-        Text_Item_Init(PAGE(goto_111_page), ITEM(goto_111_page_1_item), "Hello World!!!", NULL);
-        Goto_Item_Init(PAGE(goto_111_page), ITEM(goto_111_page_2_item), "Home", PAGE(main_page));
-    Ordinary_Page_Init(PAGE(Goto_Page), PAGE(goto_3_page), "Goto 3 Page", goto_3_page_items, 1);
-        Text_Item_Init(PAGE(goto_3_page), ITEM(goto_3_page_1_item), "TEST", NULL);
+        Text_Item_Init(PAGE(goto_111_page), ITEM(goto_111_page__1__item), "Hello World!!!", NULL);
+        Goto_Item_Init(PAGE(goto_111_page), ITEM(goto__goto_111_page__2__item), "Home", PAGE(main_page));
+
+    Ordinary_Page_Init(PAGE(goto_page), PAGE(goto_3_page), "Goto 3 Page", goto_3_page_items, 1);
+        Text_Item_Init(PAGE(goto_3_page), ITEM(test), "TEST", NULL);
     
     Easy_Menu_Goto_Page(PAGE(main_page));
 }
