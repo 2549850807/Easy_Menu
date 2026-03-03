@@ -1066,7 +1066,7 @@ class MainWindow(QMainWindow):
     def initUI(self):
         """初始化UI"""
         
-        self.setWindowTitle("Easy Menu 菜单配置器 v3.2.0")
+        self.setWindowTitle("Easy Menu 菜单配置器 v3.2.1")
         self.setGeometry(100, 100, 900, 600)
         
         # 创建菜单栏 (Integrated into Toolbar)
@@ -2589,7 +2589,7 @@ class MainWindow(QMainWindow):
             
             elif item_type == "Switch_Item":
                 # 开关条目初始化
-                data_var = properties.get("变量名", "")
+                data_var = properties.get("数据变量名", "")
                 callback_name = None
                 # 检查是否有回调函数
                 for callback in self.item_callbacks:
@@ -2603,7 +2603,7 @@ class MainWindow(QMainWindow):
             
             elif item_type == "Data_Item":
                 # 数据条目初始化
-                data_var = properties.get("变量名", "")
+                data_var = properties.get("数据变量名", "")
                 var_type = properties.get("变量类型", "uint8_val")
                 step = properties.get("步进", "1")
                 min_val = properties.get("最小值", "NULL")
@@ -2664,7 +2664,7 @@ class MainWindow(QMainWindow):
             elif item_type == "Show_Item":
                 # 展示条目初始化
                 period = properties.get("周期", "100")
-                data_var = properties.get("变量名", "")
+                data_var = properties.get("数据变量名", "")
                 var_type = properties.get("变量类型", "uint8_val")
                 callback_name = None
                     
