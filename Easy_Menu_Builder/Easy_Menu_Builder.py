@@ -18,6 +18,16 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QAction, QIcon
 from styles import LIGHT_THEME, DARK_THEME
 
+def clean_var_name(name):
+    """Clean variable name by replacing spaces and special chars"""
+    if not name or name == "NULL":
+        return name
+    return name.replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+
+def snake_to_camel(s):
+    """Convert snake_case to Snake_Camel_Case (underscore separated, capitalized words)"""
+    return "_".join(word.capitalize() for word in s.split("_"))
+
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     try:
@@ -963,7 +973,7 @@ class PropertyEditor(QWidget):
         if not current_var:
             # Generate variable name from display name
             # Basic cleaning: lowercase, spaces/dashes to underscores
-            var_name = new_name.lower().replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+            var_name = clean_var_name(new_name).lower()
             self.var_name_edit.setText(var_name)
         
         # 获取当前数据
@@ -1066,7 +1076,7 @@ class MainWindow(QMainWindow):
     def initUI(self):
         """初始化UI"""
         
-        self.setWindowTitle("Easy Menu 菜单配置器 v3.2.1")
+        self.setWindowTitle("Easy Menu 菜单配置器 v3.2.2")
         self.setGeometry(100, 100, 900, 600)
         
         # 创建菜单栏 (Integrated into Toolbar)
@@ -1801,10 +1811,6 @@ class MainWindow(QMainWindow):
             self.init_code = []         # 初始化代码
             self.variables = {}         # 占位变量
         
-        def snake_to_camel(s):
-            """Convert snake_case to Snake_Camel_Case (underscore separated, capitalized words)"""
-            return "_".join(word.capitalize() for word in s.split("_"))
-
         for item_data in tree_data:
             item_type = item_data.get("type", "普通页面")
             item_name = item_data.get("name", "")
@@ -1816,9 +1822,9 @@ class MainWindow(QMainWindow):
                 page_var = properties.get("变量名", "")
                 if not page_var:
                     # 根据参考文件格式生成变量名
-                    page_var = item_name.lower().replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+                    page_var = clean_var_name(item_name).lower()
                 else:
-                    page_var = page_var.lower()
+                    page_var = clean_var_name(page_var)
                 
                 # 页面定义
                 page_def = {
@@ -1845,14 +1851,16 @@ class MainWindow(QMainWindow):
                     if not child_var_prop:
                         # Fallback if empty property
                         # Use display name as variable name base
-                        child_var_prop = child_name.lower().replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+                        child_var_prop = clean_var_name(child_name).lower()
+                    else:
+                        child_var_prop = clean_var_name(child_var_prop)
                     
                     if use_prefix:
                         # <所属页面>_<变量名属性中的值>
                         item_var = f"{page_var}__{child_var_prop}"
                     else:
                         # 否则直接采用属性中的变量名（全小写）
-                        item_var = child_var_prop.lower()
+                        item_var = child_var_prop
                     
                     # 如果是跳转类条目（普通页面、展示页面、跳转条目），为了避免变量名冲突，添加 goto_ 前缀
                     if child_type in ["普通页面", "展示页面", "跳转条目"]:
@@ -1872,9 +1880,9 @@ class MainWindow(QMainWindow):
                         item_def["type"] = "Goto_Item"
                         child_page_var = child_props.get("变量名", "")
                         if not child_page_var:
-                            child_page_var = child_name.lower().replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+                            child_page_var = clean_var_name(child_name).lower()
                         else:
-                            child_page_var = child_page_var.lower()
+                            child_page_var = clean_var_name(child_page_var)
                         item_def["target_page"] = child_page_var
                         
                         self.page_definitions.append(item_def)
@@ -1889,9 +1897,9 @@ class MainWindow(QMainWindow):
                         item_def["type"] = "Goto_Item"
                         child_page_var = child_props.get("变量名", "")
                         if not child_page_var:
-                            child_page_var = child_name.lower().replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+                            child_page_var = clean_var_name(child_name).lower()
                         else:
-                            child_page_var = child_page_var.lower()
+                            child_page_var = clean_var_name(child_page_var)
                         item_def["target_page"] = child_page_var
                         
                         self.page_definitions.append(item_def)
@@ -1905,6 +1913,8 @@ class MainWindow(QMainWindow):
                         # 跳转条目
                         item_def["type"] = "Goto_Item"
                         target_page = child_props.get("目标页面", "NULL")
+                        if target_page and target_page != "NULL":
+                            target_page = clean_var_name(target_page)
                         item_def["target_page"] = target_page
                         
                         self.page_definitions.append(item_def)
@@ -1964,6 +1974,7 @@ class MainWindow(QMainWindow):
                         if child_type in ["开关条目", "数据条目", "展示条目"]:
                             data_var = child_props.get("数据变量名", "")
                             if data_var:
+                                data_var = clean_var_name(data_var)
                                 var_type = child_props.get("变量类型", "uint8_val")
                                 initial_value = child_props.get("初始值", "0")
                                 
@@ -2012,9 +2023,9 @@ class MainWindow(QMainWindow):
             elif item_type == "展示页面":
                 page_var = properties.get("变量名", "")
                 if not page_var:
-                    page_var = item_name.lower().replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+                    page_var = clean_var_name(item_name).lower()
                 else:
-                    page_var = page_var.lower()
+                    page_var = clean_var_name(page_var)
                 
                 self.page_definitions.append({
                     "type": "Show_Page",
@@ -2088,8 +2099,8 @@ class MainWindow(QMainWindow):
         # 例如：Text_Page_2_Item_Callback, Switch_Page_1_Item_Callback
         
         # 清理名称：移除特殊字符，用下划线替换空格
-        item_name_clean = item_name.replace(' ', '_').replace('-', '_').replace('(', '').replace(')', '')
-        parent_page_clean = parent_page_var.replace(' ', '_') if parent_page_var else ""
+        item_name_clean = clean_var_name(item_name)
+        parent_page_clean = clean_var_name(parent_page_var)
         
         # 根据条目类型确定前缀
         type_prefix_map = {
