@@ -7,6 +7,7 @@ void Ordinary_Page_Init(Page *prev_page, Page *page, char *text, Item **items, u
     page->type = ORDINARY_PAGE;
     page->text = text;
     page->prev_page = prev_page;
+    page->user_data = NULL;
     
     page->Enter = Ordinary_Page_Enter;
     page->Display = Ordinary_Page_Display;
@@ -504,27 +505,23 @@ void Ordinary_Page_Input(Easy_Menu_Input_TYPE user_input)
             break;
             
         case EASY_MENU_LEFT:
-            /* 当处于非锁定状态，并且有父页面时，返回父页面 */
-            if(easy_menu.current_page->prev_page != NULL && easy_menu.lock_flag == 0)
+            if(easy_menu.lock_flag == 1)
             {
-                if(easy_menu.current_page->Exit != NULL)
-                    easy_menu.current_page->Exit();
-                
-                easy_menu.current_page = easy_menu.current_page->prev_page;
-    
-                if(easy_menu.current_page->Enter != NULL)
-                    easy_menu.current_page->Enter();
-            }
-        
-            if(ordinary_page->items[current_item_idx]->Input != NULL)
-            {
-                if(easy_menu.lock_flag == 1 && (ordinary_page->items[current_item_idx]->type == SWITCH_ITEM  || \
-                                                ordinary_page->items[current_item_idx]->type == DATA_ITEM  || \
-                                                ordinary_page->items[current_item_idx]->type == ENUM_ITEM))
+                /* 锁定状态 —— 解锁当前条目 */
+                if(ordinary_page->items[current_item_idx]->Input != NULL &&
+                   (ordinary_page->items[current_item_idx]->type == SWITCH_ITEM  || \
+                    ordinary_page->items[current_item_idx]->type == DATA_ITEM    || \
+                    ordinary_page->items[current_item_idx]->type == ENUM_ITEM))
                 {
                     easy_menu.lock_flag = 0;
                     Easy_Menu_Display_Char(0, ordinary_page->cursor, EASY_MENU_FREE_CHAR);
                 }
+            }
+            else
+            {
+                /* 非锁定状态 —— 返回上一页面 */
+                Easy_Menu_Back();
+                return;   /* 页面已切换，不再处理旧页面逻辑 */
             }
             break;
             
@@ -1019,6 +1016,7 @@ void Show_Page_Init(Page *prev_page, Page *page, char *text, unsigned short int 
     page->type = SHOW_PAGE;
     page->text = text;
     page->prev_page = prev_page;
+    page->user_data = NULL;
     
     page->Enter = Show_Page_Enter;
     page->Display = Show_Page_Diaplsy;
@@ -1054,7 +1052,7 @@ void Show_Page_Diaplsy(void)
     if(show_page->Period_Callback != NULL && easy_menu.tick - show_page->last_tick > show_page->period)
     {
         show_page->last_tick = easy_menu.tick;
-        show_page->Period_Callback(NULL, EASY_MENU_NONE);
+        show_page->Period_Callback(easy_menu.current_page->user_data, EASY_MENU_NONE);
     }
 }
 void Show_Page_Input(Easy_Menu_Input_TYPE user_input)
@@ -1064,18 +1062,16 @@ void Show_Page_Input(Easy_Menu_Input_TYPE user_input)
     if(show_page->Period_Callback != NULL)
     {
         show_page->last_tick = easy_menu.tick;
-        show_page->Period_Callback(NULL, user_input);
+        show_page->Period_Callback(easy_menu.current_page->user_data, user_input);
     }
     
-    if(user_input == EASY_MENU_LEFT && easy_menu.current_page->prev_page != NULL)
+    /* 如果回调中已经跳转了页面，不再处理 LEFT */
+    if(easy_menu.current_page != (Page*)show_page)
+        return;
+    
+    if(user_input == EASY_MENU_LEFT)
     {
-        if(easy_menu.current_page->Exit != NULL)
-            easy_menu.current_page->Exit();
-
-        easy_menu.current_page = easy_menu.current_page->prev_page;
-
-        if(easy_menu.current_page->Enter != NULL)
-            easy_menu.current_page->Enter();
+        Easy_Menu_Back();
     }         
 }
 void Show_Page_Exit(void)

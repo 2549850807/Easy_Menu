@@ -14,6 +14,9 @@ void Easy_Menu_Init(void (*Display_Char)(unsigned short int x, unsigned short in
     /* 重置系统输入 */
     easy_menu.current_input = EASY_MENU_NONE;
     
+    /* 初始化页面导航栈 */
+    easy_menu.page_stack_top = 0;
+    
     /* 清屏 */
     Easy_Menu_All_Clear();
     
@@ -69,6 +72,55 @@ void Easy_Menu_Get_Current_Page_Text(char* str)
 
 void Easy_Menu_Goto_Page(Page *target_page)
 {
+    /* 检查目标是否已在导航栈中（回退） */
+    for (int i = (int)easy_menu.page_stack_top - 1; i >= 0; i--)
+    {
+        if (easy_menu.page_stack[i] == target_page)
+        {
+            /* 目标在栈中 —— 弹出到该位置（等效多次 Back） */
+            if (easy_menu.init_flag == 1 && easy_menu.current_page != NULL
+                && easy_menu.current_page->Exit != NULL)
+                easy_menu.current_page->Exit();
+
+            easy_menu.page_stack_top = (unsigned char)i;
+            easy_menu.current_page = target_page;
+
+            if (easy_menu.init_flag == 1 && easy_menu.current_page->Enter != NULL)
+                easy_menu.current_page->Enter();
+            return;
+        }
+    }
+
+    /* 目标不在栈中 —— 压栈当前页面并前进 */
+    if (easy_menu.init_flag == 1 && easy_menu.current_page != NULL)
+    {
+        if (easy_menu.page_stack_top < EASY_MENU_PAGE_STACK_DEPTH)
+            easy_menu.page_stack[easy_menu.page_stack_top++] = easy_menu.current_page;
+
+        if (easy_menu.current_page->Exit != NULL)
+            easy_menu.current_page->Exit();
+    }
+
+    easy_menu.current_page = target_page;
+    
+    /* 重置目标页面光标 */
+    if(easy_menu.current_page->type == ORDINARY_PAGE)
+    {
+        Ordinary_Page *ordinary_page = (Ordinary_Page*)(easy_menu.current_page);
+        ordinary_page->items_index = 0;
+#if ORDINARY_PAGE_TITLE_DISPLAY == 0
+        ordinary_page->cursor = 0;
+#else
+        ordinary_page->cursor = 1;
+#endif
+    }
+    
+    if(easy_menu.init_flag == 1 && easy_menu.current_page->Enter != NULL)
+        easy_menu.current_page->Enter();
+}
+
+void Easy_Menu_Set_Page(Page *target_page)
+{
     if(easy_menu.init_flag == 1 && easy_menu.current_page != NULL && easy_menu.current_page->Exit != NULL)
         easy_menu.current_page->Exit();
   
@@ -87,6 +139,22 @@ void Easy_Menu_Goto_Page(Page *target_page)
     }
     
     if(easy_menu.init_flag == 1 && easy_menu.current_page->Enter != NULL)
+        easy_menu.current_page->Enter();
+}
+
+void Easy_Menu_Back(void)
+{
+    if (easy_menu.page_stack_top == 0)
+        return;
+
+    if (easy_menu.current_page != NULL && easy_menu.current_page->Exit != NULL)
+        easy_menu.current_page->Exit();
+
+    easy_menu.current_page = easy_menu.page_stack[--easy_menu.page_stack_top];
+
+    /* 不重置光标 —— 返回时保持之前的选中状态 */
+
+    if (easy_menu.current_page->Enter != NULL)
         easy_menu.current_page->Enter();
 }
 

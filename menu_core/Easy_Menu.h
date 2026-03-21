@@ -9,26 +9,48 @@
 #include <limits.h>
 #include <float.h>
 
-/* ================================================================ 用户配置项 ================================================================ */
-#define SCREEN_WIDTH     128           // 屏幕宽（像素）
-#define SCREEN_HEIGHT    64            // 屏幕高（像素）
+/* ========================= 用户配置（由项目提供 Easy_Menu_Conf.h） ========================= */
+#include "Easy_Menu_Conf.h"
 
-#define CHAR_WIDTH       8             // 字符宽（像素），统一使用 ASCII 字符的宽度，中文字符必须为 ASCII 字符的两倍
-#define CHAR_HEIGHT      16            // 字符高（像素）
+/* --- 必需配置项 --- Easy_Menu_Conf.h 中必须定义，否则编译报错 */
+#ifndef SCREEN_WIDTH
+  #error "Easy_Menu: SCREEN_WIDTH 未定义，请在 Easy_Menu_Conf.h 中定义屏幕宽度（像素）"
+#endif
+#ifndef SCREEN_HEIGHT
+  #error "Easy_Menu: SCREEN_HEIGHT 未定义，请在 Easy_Menu_Conf.h 中定义屏幕高度（像素）"
+#endif
+#ifndef CHAR_WIDTH
+  #error "Easy_Menu: CHAR_WIDTH 未定义，请在 Easy_Menu_Conf.h 中定义字符宽度（像素）"
+#endif
+#ifndef CHAR_HEIGHT
+  #error "Easy_Menu: CHAR_HEIGHT 未定义，请在 Easy_Menu_Conf.h 中定义字符高度（像素）"
+#endif
 
-#define USER_FREE_CHAR  '>'            // 解锁状态下的 ASCII 指示符
-#define USER_FIX_CHAR   '&'            // 锁定状态下的 ASCII 指示符
-
-#define USER_LIST_ITEM_CHAR '+'        // 二级菜单 ASCII 指示符
-
-#define TITLE_DISPLAY   0              // 是否开启居中显示页面标题（普通页面），最大行数（SCREEN_HIGHT / CHAR_HIGHT）> 1 才会生效
-
-#define USER_TITLE_LEFT_CHAR    '<'    // 标题左侧的 ASCII 指示符
-#define USER_TITLE_RIGHT_CHAR   '>'    // 标题右侧的 ASCII 指示符
-
-#define SWITCH_ITEM_MODE    1          // 开关条目显示模式：0->显示 0 / 1，1->显示 OFF / ON
-
-#define ENUM_ITEM_MODE  0              // 枚举条目操作模式：0-普通队列，1-循环队列（从第 0 个往上会回到结尾，从结尾往下会回到第 0 个）
+/* --- 可选配置项 --- 未定义时使用默认值 */
+#ifndef USER_FREE_CHAR
+  #define USER_FREE_CHAR  '>'            // 解锁状态下的 ASCII 指示符
+#endif
+#ifndef USER_FIX_CHAR
+  #define USER_FIX_CHAR   '&'            // 锁定状态下的 ASCII 指示符
+#endif
+#ifndef USER_LIST_ITEM_CHAR
+  #define USER_LIST_ITEM_CHAR '+'        // 二级菜单 ASCII 指示符
+#endif
+#ifndef TITLE_DISPLAY
+  #define TITLE_DISPLAY   0              // 是否开启居中显示页面标题（SCREEN_HEIGHT / CHAR_HEIGHT > 1 时有效）
+#endif
+#ifndef USER_TITLE_LEFT_CHAR
+  #define USER_TITLE_LEFT_CHAR    '<'    // 标题左侧的 ASCII 指示符
+#endif
+#ifndef USER_TITLE_RIGHT_CHAR
+  #define USER_TITLE_RIGHT_CHAR   '>'    // 标题右侧的 ASCII 指示符
+#endif
+#ifndef SWITCH_ITEM_MODE
+  #define SWITCH_ITEM_MODE    1          // 开关条目显示模式：0->显示 0 / 1，1->显示 OFF / ON
+#endif
+#ifndef ENUM_ITEM_MODE
+  #define ENUM_ITEM_MODE  0              // 枚举条目操作模式：0-普通队列，1-循环队列
+#endif
 
 //#define EASY_MENU_CHINESE_CODING  1  // 使用的中文编码：0-UTF-8, 1-GB2312          留作拓展使用，目前只支持 GB2312 编码
 /* ============================================================= 系统接口函数原型============================================================== */
@@ -74,7 +96,8 @@ typedef enum {
 typedef struct Page {
 	PAGE_TYPE type;             // 页面类型
 	char *text;                 // 页面名称
-    struct Page *prev_page;     // 上级页面
+    struct Page *prev_page;     // 上级页面（保留，可用于静态层级关系）
+    void *user_data;            // 页面级数据通道
     
     void (*Enter)(void);
     void (*Display)(void);
@@ -119,6 +142,11 @@ typedef struct Item {
 #define PAGE(user_page) &(user_page.page)
 #define ITEM(user_item) &(user_item.item)
 
+/* 页面导航栈深度（可在 Easy_Menu_Conf.h 中覆盖） */
+#ifndef EASY_MENU_PAGE_STACK_DEPTH
+  #define EASY_MENU_PAGE_STACK_DEPTH 8
+#endif
+
 /* 系统结构体 */
 typedef struct Easy_Menu {
     char buffer[EASY_MENU_LINE_MAX_NUM][EASY_MENU_COL_MAX_NUM];                                                             // 实际缓冲区
@@ -136,6 +164,9 @@ typedef struct Easy_Menu {
     
     Page *current_page;                                                                                                     // 当前页面    
     unsigned char current_line;                                                                                             // 当前行（普通页面）
+    
+    Page *page_stack[EASY_MENU_PAGE_STACK_DEPTH];                                                                           // 页面导航栈
+    unsigned char page_stack_top;                                                                                           // 栈顶索引
     
     unsigned char lock_flag;                                                                                                // 锁定标志位
     
@@ -196,10 +227,24 @@ void Easy_Menu_Input(Easy_Menu_Input_TYPE user_input);
 void Easy_Menu_Get_Current_Page_Text(char* str);
 
 /**
-    * @brief  刷新当前页面的内容（）
-    * @param  target_page: 目标页面的变量 
-    * @notes  使用时需要以这样的形式使用：PAGE(target_page)
+    * @brief  跳转到目标页面 —— 智能导航
+    * @param  target_page: 目标页面指针（使用 PAGE() 宏）
+    * @notes  如果目标在导航栈中，回退到该位置（等效于多次 Back）；
+    *         否则压栈当前页面并前进到目标页面。
   */
 void Easy_Menu_Goto_Page(Page *target_page);
+
+/**
+    * @brief  直接设置当前页面 —— 不操作导航栈
+    * @param  target_page: 目标页面指针（使用 PAGE() 宏）
+    * @notes  用于初始化或需要跳过栈操作的场景
+  */
+void Easy_Menu_Set_Page(Page *target_page);
+
+/**
+    * @brief  返回上一个页面 —— 从导航栈弹出
+    * @notes  栈为空时不做任何操作
+  */
+void Easy_Menu_Back(void);
 
 #endif 
