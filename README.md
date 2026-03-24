@@ -226,7 +226,8 @@ void Easy_Menu_Display(unsigned int Easy_Menu_Tick);
 /**
     * @brief  刷新当前页面的内容
     * @param  Display_Char: ASCII 字符显示函数
-    * @notes  仅对普通页面有效，用于在回调函数中修改开关/数据条目的值时，调用这个函数可以立刻刷新
+    * @notes  仅对普通页面有效，用于在回调函数中修改其他开关/数据条目的值时，调用这个函数可以立刻刷新
+    *		  例如在文本条目的回调函数中将同页面下的数据条目数值归 0，时，可以调用这个函数提前更新数值。
   */
 void Easy_Menu_Display_Refresh(void);
 
@@ -326,6 +327,16 @@ python Easy_Menu_Builder.py
 - 回调函数（页面）：页面的回调函数模板。
 - 设置列表（普通页面）：普通页面绑定的条目列表。
 - 系统初始化：将所需的页面和条目进行初始化，并设置初始页面。
+
+# 常见问题
+
+## 数据条目的内容为空白
+
+* 检测是否是使用了 float 类型的数据/展示条目，需要开启 sprintf 的浮点数支持。
+
+## 生成报错：maximum recursion depth exceeded while calling a Python object
+
+* 请检查是否有变量名相同的页面/条目。
 
 # 参考项目
 
